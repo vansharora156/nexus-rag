@@ -1,0 +1,40 @@
+# Core API
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-dotenv>=1.0.0
+python-multipart>=0.0.9
+
+# Document Parsing
+pdfplumber>=0.11.0
+pymupdf>=1.24.0
+markdown-it-py>=3.0.0
+openpyxl>=3.1.0
+pandas>=2.2.0
+
+# OCR
+paddleocr>=2.7.0
+paddlepaddle-cpu>=2.6.0  # CPU version for ease of install
+Pillow>=10.0.0
+
+# Embeddings & Re-ranking
+sentence-transformers>=3.0.0
+torch>=2.0.0
+
+# Vector Store
+qdrant-client>=1.9.0
+
+# BM25 Sparse Retrieval
+bm25s>=0.3.0
+
+# LLM
+google-genai>=0.1.0
+
+# Deduplication
+datasketch>=1.6.0
+
+# Evaluation
+ragas>=0.2.0
+
+# Utilities
+tqdm>=4.66.0
+xxhash>=3.4.0
