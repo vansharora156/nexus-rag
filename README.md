@@ -10,11 +10,15 @@
 [![Qdrant](https://img.shields.io/badge/Qdrant-FF007F?style=for-the-badge&logo=qdrant&logoColor=white)](https://qdrant.tech/)
 [![Gemini](https://img.shields.io/badge/Gemini-8E75C2?style=for-the-badge&logo=google-gemini&logoColor=white)](https://deepmind.google/technologies/gemini/)
 
+[![GitHub last commit](https://img.shields.io/github/last-commit/vansharora156/ask-the-company?style=for-the-badge)](https://github.com/vansharora156/ask-the-company/commits/main)
+[![GitHub repo size](https://img.shields.io/github/repo-size/vansharora156/ask-the-company?style=for-the-badge)](https://github.com/vansharora156/ask-the-company)
+[![GitHub issues](https://img.shields.io/github/issues/vansharora156/ask-the-company?style=for-the-badge)](https://github.com/vansharora156/ask-the-company/issues)
+
 ---
 
 **NexusRAG** is a production-grade Retrieval-Augmented Generation (RAG) system built for the messy reality of enterprise data. It ingests Confluence spaces, structured or scanned PDFs (powered by PaddleOCR), Slack threads, and Excel spreadsheets—normalizes them into unified schema chunks, indexes them into a hybrid search engine, and serves secured, cited answers using Google Gemini.
 
-[Features](#-features) · [Architecture](#-architecture) · [Quick Start](#-quick-start) · [Project Structure](#-project-structure) · [ADRs](#-architecture-decision-records)
+[Features](#-features) · [Architecture](#-architecture) · [Demo](#-demo) · [Screenshots](#-screenshots) · [Quick Start](#-quick-start) · [Project Structure](#-directory-structure) · [ADRs](#-architecture-decision-records) · [Roadmap](#️-roadmap)
 
 </div>
 
@@ -63,6 +67,25 @@ flowchart LR
     style Generation fill:#533483,stroke:#e94560,color:#eee
 ```
 
+Let's look at the pipeline infographic:
+![NexusRAG System Architecture](docs/architecture.png)
+
+---
+
+## 🎥 Demo
+
+🚧 **Demo coming soon**
+
+- **UI Preview**: Glassmorphism chat interface with interactive context cards.
+- **Query Pipeline**: Demonstration of real-time query expansion, HyDE document generation, and reranking.
+- **Enterprise Search**: Role-switching demonstration displaying dynamic ACL permission gating.
+
+---
+
+## 📸 Screenshots
+
+🚧 **Screenshots and interface previews will be added here in Week 4** once the frontend layouts are fully completed.
+
 ---
 
 ## ✨ Features
@@ -80,9 +103,47 @@ flowchart LR
 
 ---
 
-## 📁 Project Structure
+## 📂 Directory Structure
 
 Navigate and explore the folders in this repository:
+
+```
+📂 NexusRAG/
+├── 📂 data/
+│   ├── 📂 excel/
+│   ├── 📂 markdown/
+│   ├── 📂 pdf/
+│   ├── 📂 sample/
+│   └── 📂 slack/
+├── 📂 docs/
+│   ├── 📂 adr/
+│   │   ├── 001-vector-db.md
+│   │   ├── 002-hybrid-search.md
+│   │   ├── 003-ocr-choice.md
+│   │   └── 004-permission-model.md
+│   ├── architecture.md
+│   ├── architecture.png
+│   ├── data_sources.md
+│   ├── evaluation_plan.md
+│   ├── roadmap.md
+│   └── tech_stack.md
+├── 📂 scripts/
+│   ├── evaluate.py
+│   ├── generate_data.py
+│   └── ingest.py
+├── 📂 server/
+│   ├── main.py
+│   └── routes.py
+├── 📂 src/
+│   ├── 📂 acl/
+│   ├── 📂 chunking/
+│   ├── 📂 generation/
+│   ├── 📂 indexing/
+│   ├── 📂 parsers/
+│   ├── 📂 pipeline/
+│   └── 📂 retrieval/
+└── 📂 tests/
+```
 
 - 📂 [**docs/adr/**](docs/adr/) — Architecture Decision Records detailing our design decisions.
 - 📂 [**src/**](src/) — End-to-end Python pipeline package:
@@ -96,7 +157,6 @@ Navigate and explore the folders in this repository:
 - 📂 [**server/**](server/) — FastAPI application routing backend and the web UI client assets.
 - 📂 [**scripts/**](scripts/) — Ingestion runners, evaluation pipelines, and synthetic data generators.
 - 📂 [**tests/**](tests/) — Suite of pytests verifying functionality across components.
-- 📂 [**eval/**](eval/) — Ground-truth questions, citation metrics, and evaluation runners.
 
 ---
 
@@ -105,7 +165,7 @@ Navigate and explore the folders in this repository:
 ### 1. Clone & Setup Environment
 
 ```bash
-git clone https://github.com/your-org/ask-the-company.git
+git clone https://github.com/vansharora156/ask-the-company.git
 cd ask-the-company
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
@@ -123,7 +183,7 @@ cp .env.example .env
 Ensure the following properties are configured:
 - **Gemini API Key**: Set your `GEMINI_API_KEY` for response generation.
 - **Qdrant Vector Store**:
-  - For local runs without Docker, set `QDRANT_PATH=./qdrant_storage` (Qdrant will run in-memory or write to disk locally).
+  - For local runs, set `QDRANT_PATH=./qdrant_storage` (Qdrant will run in-memory or write to disk locally).
   - Alternatively, if you have Qdrant running in Docker or Cloud, use `QDRANT_URL=http://localhost:6333` and comment out `QDRANT_PATH`.
 
 ### 3. Run Ingestion Pipeline
@@ -163,6 +223,27 @@ We document major technology choices and design patterns using Architecture Deci
 
 ---
 
+## 🗺️ Roadmap
+
+*   [x] **Week 1: Documentation & Scaffolding**
+    *   Establish problem statement, initial design, tech stack selection, and ADRs.
+    *   Configure project scaffolding, folder structures, and package `__init__.py` files.
+*   [ ] **Week 2: Ingestion Parsers & Layout Analysis**
+    *   Implement Confluence Markdown, Slack thread JSON, and Excel/CSV parsers.
+    *   Build the scanned/text PDF parser integrated with **PaddleOCR**.
+*   [ ] **Week 3: Hybrid Retrieval & ACL Security**
+    *   Build **bm25s** indexer and Qdrant vector db handlers.
+    *   Implement Reciprocal Rank Fusion (RRF) and BGE-Reranker-Large cross-encoder.
+    *   Implement metadata-based ACL permission filtering.
+*   [ ] **Week 4: FastAPI & Web UI**
+    *   Deploy FastAPI gateway with authorization mocks.
+    *   Build dark-mode glassmorphism interface with inline citations and role selectors.
+*   [ ] **Week 5: Evaluation Suite**
+    *   Construct a 100 Q&A Golden Dataset.
+    *   Automate latency, accuracy, and ACL compliance security tests using **Ragas**.
+
+---
+
 ## 🤝 Contributing
 
 We follow standard Git workflows. Ensure you write type hints, document functions/classes, add pytests for any new modules, and update the relevant ADR when modifying design paths.
@@ -173,4 +254,6 @@ We follow standard Git workflows. Ensure you write type hints, document function
 
 Distributed under the MIT License. See [LICENSE](LICENSE) for details.
 
-Copyright © 2026 BigCorp Engineering.
+Copyright © 2026 Vansh Arora
+
+Developed as part of the LLM Systems & Applied GenAI Internship.
