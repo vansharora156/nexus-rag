@@ -10,9 +10,9 @@
 [![Qdrant](https://img.shields.io/badge/Qdrant-FF007F?style=for-the-badge&logo=qdrant&logoColor=white)](https://qdrant.tech/)
 [![Gemini](https://img.shields.io/badge/Gemini-8E75C2?style=for-the-badge&logo=google-gemini&logoColor=white)](https://deepmind.google/technologies/gemini/)
 
-[![GitHub last commit](https://img.shields.io/github/last-commit/vansharora156/ask-the-company?style=for-the-badge)](https://github.com/vansharora156/ask-the-company/commits/main)
-[![GitHub repo size](https://img.shields.io/github/repo-size/vansharora156/ask-the-company?style=for-the-badge)](https://github.com/vansharora156/ask-the-company)
-[![GitHub issues](https://img.shields.io/github/issues/vansharora156/ask-the-company?style=for-the-badge)](https://github.com/vansharora156/ask-the-company/issues)
+[![GitHub last commit](https://img.shields.io/github/last-commit/vansharora156/nexus-rag?style=for-the-badge)](https://github.com/vansharora156/nexus-rag/commits/main)
+[![GitHub repo size](https://img.shields.io/github/repo-size/vansharora156/nexus-rag?style=for-the-badge)](https://github.com/vansharora156/nexus-rag)
+[![GitHub issues](https://img.shields.io/github/issues/vansharora156/nexus-rag?style=for-the-badge)](https://github.com/vansharora156/nexus-rag/issues)
 
 ---
 
@@ -165,8 +165,8 @@ Navigate and explore the folders in this repository:
 ### 1. Clone & Setup Environment
 
 ```bash
-git clone https://github.com/vansharora156/ask-the-company.git
-cd ask-the-company
+git clone https://github.com/vansharora156/nexus-rag.git
+cd nexus-rag
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
