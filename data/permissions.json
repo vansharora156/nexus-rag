@@ -1,0 +1,57 @@
+{
+  "roles": ["engineering", "product", "hr", "finance", "exec", "all"],
+  "documents": {
+    "engineering-onboarding.md": ["engineering", "hr", "exec"],
+    "api-rate-limits.md": ["engineering", "exec"],
+    "incident-runbook.md": ["engineering"],
+    "product-roadmap-2024.md": ["product", "exec"],
+    "hr-leave-policy.md": ["all"],
+    "architecture-decisions.md": ["engineering", "product", "exec"],
+    "vendor-evaluation.md": ["engineering", "finance", "exec"],
+    "company-values.md": ["all"],
+    "quarterly-report-q3.pdf": ["finance", "exec"],
+    "security-audit-2024.pdf": ["engineering", "exec"],
+    "employee-handbook.pdf": ["all"],
+    "patent-filing-2024.pdf": ["engineering", "exec"],
+    "engineering-general.json": ["engineering"],
+    "product-decisions.json": ["product", "engineering", "exec"],
+    "all-hands-questions.json": ["all"],
+    "leadership-sync.json": ["exec"],
+    "employee-directory.csv": ["hr", "exec"],
+    "budget-2024.xlsx": ["finance", "exec"],
+    "okr-tracking-q3.xlsx": ["product", "exec"],
+    "vendor-contacts.csv": ["finance", "engineering", "exec"]
+  },
+  "users": {
+    "alice": {
+      "roles": ["engineering"],
+      "name": "Alice Chen",
+      "title": "Senior Engineer"
+    },
+    "bob": {
+      "roles": ["product", "exec"],
+      "name": "Bob Martinez",
+      "title": "VP Product"
+    },
+    "carol": {
+      "roles": ["hr"],
+      "name": "Carol Williams",
+      "title": "HR Manager"
+    },
+    "dave": {
+      "roles": ["finance"],
+      "name": "Dave Kumar",
+      "title": "Finance Analyst"
+    },
+    "eve": {
+      "roles": ["engineering", "exec"],
+      "name": "Eve Johnson",
+      "title": "CTO"
+    },
+    "frank": {
+      "roles": ["all"],
+      "name": "Frank Intern",
+      "title": "Summer Intern"
+    }
+  }
+}
