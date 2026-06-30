@@ -53,6 +53,16 @@ bm25_index/
 
 # ---------- Generated Data ----------
 # Synthetic enterprise data is generated locally, not tracked
+data/pdf/*
+!data/pdf/.gitkeep
+data/markdown/*
+!data/markdown/.gitkeep
+data/excel/*
+!data/excel/.gitkeep
+data/slack/*
+!data/slack/.gitkeep
+data/sample/*
+!data/sample/.gitkeep
 data/generated/
 
 # ---------- Node (if UI tooling is added) ----------
