@@ -1,0 +1,106 @@
+{
+  "chunk_ids": [
+    "12540bcf5112ab008cb207cba7156a8f_chunk_0000",
+    "12540bcf5112ab008cb207cba7156a8f_chunk_0001",
+    "12540bcf5112ab008cb207cba7156a8f_chunk_0002",
+    "12540bcf5112ab008cb207cba7156a8f_chunk_0003",
+    "12540bcf5112ab008cb207cba7156a8f_chunk_0004",
+    "12540bcf5112ab008cb207cba7156a8f_chunk_0005"
+  ],
+  "chunk_contents": [
+    "**Effective January 1, 2024**\n\nThis page details standard time off policies for full-time and part-time internal staff at BigCorp.",
+    "- Full-time employees accrue 25 days of paid time off per calendar year.\n- A maximum of 5 unused PTO days can be rolled over into the next fiscal year.\n- All leave requests must be submitted through BambooHR and approved by your direct manager.",
+    "- Full-time staff are allocated 12 paid sick days per year.\n- Sick leave does not roll over and cannot be cashed out upon termination.",
+    "- Primary caregivers are eligible for 16 weeks of fully paid leave.\n- Secondary caregivers are eligible for 8 weeks of fully paid leave.",
+    "At BigCorp, we believe that sustainable work practices are the foundation of high-performing teams. We commit to supporting flexible remote schedules, providing comprehensive mental health resources, offering a standard wellness stipend, and enforcing a strict \"no after-hours notifications\" protocol unless an employee is actively on-call for critical system alerts.",
+    "BigCorp observes 10 standard federal public holidays annually. Please consult the company calendar for exact dates."
+  ],
+  "chunk_acls": [
+    [
+      "all"
+    ],
+    [
+      "all"
+    ],
+    [
+      "all"
+    ],
+    [
+      "all"
+    ],
+    [
+      "all"
+    ],
+    [
+      "all"
+    ]
+  ],
+  "chunk_metadata": [
+    {
+      "doc_id": "12540bcf5112ab008cb207cba7156a8f",
+      "title": "BigCorp Leave Policy",
+      "heading_path": "BigCorp Leave Policy",
+      "source_type": "confluence",
+      "page_number": null,
+      "row_range": null,
+      "is_table": false,
+      "is_duplicate": false,
+      "duplicate_of": null
+    },
+    {
+      "doc_id": "12540bcf5112ab008cb207cba7156a8f",
+      "title": "BigCorp Leave Policy",
+      "heading_path": "BigCorp Leave Policy > 1. Paid Time Off (PTO)",
+      "source_type": "confluence",
+      "page_number": null,
+      "row_range": null,
+      "is_table": false,
+      "is_duplicate": false,
+      "duplicate_of": null
+    },
+    {
+      "doc_id": "12540bcf5112ab008cb207cba7156a8f",
+      "title": "BigCorp Leave Policy",
+      "heading_path": "BigCorp Leave Policy > 2. Sick Leave",
+      "source_type": "confluence",
+      "page_number": null,
+      "row_range": null,
+      "is_table": false,
+      "is_duplicate": false,
+      "duplicate_of": null
+    },
+    {
+      "doc_id": "12540bcf5112ab008cb207cba7156a8f",
+      "title": "BigCorp Leave Policy",
+      "heading_path": "BigCorp Leave Policy > 3. Parental Leave",
+      "source_type": "confluence",
+      "page_number": null,
+      "row_range": null,
+      "is_table": false,
+      "is_duplicate": false,
+      "duplicate_of": null
+    },
+    {
+      "doc_id": "12540bcf5112ab008cb207cba7156a8f",
+      "title": "BigCorp Leave Policy",
+      "heading_path": "BigCorp Leave Policy > 4. Wellness and balance Commitments",
+      "source_type": "confluence",
+      "page_number": null,
+      "row_range": null,
+      "is_table": false,
+      "is_duplicate": false,
+      "duplicate_of": null
+    },
+    {
+      "doc_id": "12540bcf5112ab008cb207cba7156a8f",
+      "title": "BigCorp Leave Policy",
+      "heading_path": "BigCorp Leave Policy > 5. Public Holidays",
+      "source_type": "confluence",
+      "page_number": null,
+      "row_range": null,
+      "is_table": false,
+      "is_duplicate": false,
+      "duplicate_of": null
+    }
+  ]
+}

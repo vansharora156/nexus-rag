@@ -35,6 +35,13 @@ class PDFParser(DocumentParser):
     """
 
     OCR_THRESHOLD: int = 50
+    def __init__(self):
+        """
+        Initialize parser.
+        OCR client is created lazily (only when first needed) because
+        PaddleOCR initialization is expensive.
+        """
+        self.ocr_client = None
 
     def supported_extensions(self) -> List[str]:
         """Return extensions this parser handles.
@@ -144,7 +151,7 @@ class PDFParser(DocumentParser):
             raise ValueError(f"No text could be extracted from PDF: {file_path}")
 
         title = self._extract_title(sections, file_path)
-        doc_id = hashlib.md5(str(file_path.resolve()).encode("utf-8")).hexdigest()
+        doc_id = hashlib.sha256(full_content.encode("utf-8")).hexdigest()
 
         doc = ParsedDocument(
             doc_id=doc_id,
@@ -154,8 +161,12 @@ class PDFParser(DocumentParser):
             source_path=str(file_path.resolve()),
             metadata={
                 "page_count": len(sections),
-                "source_file": str(file_path.name),
-            },
+                "source_file": file_path.name,
+                "file_size": file_path.stat().st_size,
+                "parser": "pdfplumber",
+                "ocr_enabled": is_scanned,
+                },
+       
             sections=sections,
             tables=tables,
             acl_tags=acl_tags,
@@ -179,14 +190,20 @@ class PDFParser(DocumentParser):
         """
         try:
             import numpy as np  # lazy import
-            from paddleocr import PaddleOCR as OCR  # lazy import
+            from paddleocr import PaddleOCR as OCR  # lazy import  # type: ignore[import]
 
             pil_image = page.to_image(resolution=300).original
             image_array = np.array(pil_image)
 
             # Initialize PaddleOCR client (using CPU by default, English language, quiet logging)
-            ocr_client = OCR(use_angle_cls=True, lang="en", show_log=False, use_gpu=False)
-            result = ocr_client.ocr(image_array, cls=True)
+            if self.ocr_client is None:
+                self.ocr_client = OCR(
+                    use_angle_cls=True,
+                    lang=config.OCR_LANGUAGE,
+                    show_log=False,
+                    use_gpu=False,
+                )
+            result = self.ocr_client.ocr(image_array, cls=True)
 
             if not result or not result[0]:
                 return ""
