@@ -120,6 +120,8 @@ class Config:
 
     # -- OCR ------------------------------------------------------------------
     OCR_ENGINE: str = os.getenv("OCR_ENGINE", "PaddleOCR")
+    OCR_LANGUAGE: str = os.getenv("OCR_LANGUAGE", "en")
+    OCR_RENDER_DPI: int = int(os.getenv("OCR_RENDER_DPI", "120"))
 
 
 # Singleton config instance – import this from anywhere in the project.

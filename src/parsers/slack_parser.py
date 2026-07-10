@@ -99,9 +99,12 @@ class SlackParser(DocumentParser):
 
         if not isinstance(messages, list):
 
-            raise ValueError(
-                f"Slack export must contain a list of messages: {file_path}"
+            logger.warning(
+                "Skipping non-Slack JSON file: %s",
+                file_path.name,
             )
+
+            return []
 
         logger.info(
             "Loaded %d Slack messages",

@@ -7,6 +7,7 @@ consecutive sentences to find topic shift boundaries.
 import logging
 from typing import List, Optional
 import numpy as np
+import hashlib
 
 from src.config import config
 from .structural_chunker import Chunk
@@ -126,22 +127,35 @@ class SemanticChunker:
                 continue
 
             # Build sub-chunks
-            logger.info(f"Semantically split chunk '{chunk.chunk_id}' into {len(sub_chunks_content)} parts")
+            logger.info(
+                "Semantically split chunk '%s' into %d parts.",
+                chunk.chunk_id,
+                len(sub_chunks_content),
+            )
             for sub_idx, sub_content in enumerate(sub_chunks_content):
-                sub_chunk_id = f"{chunk.chunk_id}_s{sub_idx:02d}"
+                sub_chunk_id = hashlib.sha256(
+                    (chunk.chunk_id + sub_content).encode("utf-8")
+                ).hexdigest()
                 sub_chunk = Chunk(
                     chunk_id=sub_chunk_id,
                     doc_id=chunk.doc_id,
                     content=sub_content,
                     source_type=chunk.source_type,
                     title=chunk.title,
+                    heading=chunk.heading,
                     heading_path=chunk.heading_path,
                     page_number=chunk.page_number,
                     row_range=chunk.row_range,
                     acl_tags=chunk.acl_tags,
                     source_path=chunk.source_path,
                     is_table=False,
-                    metadata={**chunk.metadata, "semantic_split_idx": sub_idx}
+                    metadata={
+                        **chunk.metadata,
+                        "semantic_split_idx": sub_idx,
+                        "semantic_parent": chunk.chunk_id,
+                        "character_count": len(sub_content),
+                        "semantic_split": True,
+                    }
                 )
                 output_chunks.append(sub_chunk)
 

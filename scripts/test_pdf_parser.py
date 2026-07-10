@@ -12,6 +12,7 @@ This script checks:
 4. ParsedDocument contents
 """
 
+import sys
 from pathlib import Path
 import traceback
 
@@ -19,6 +20,7 @@ from src.parsers.pdf_parser import PDFParser
 
 
 def main():
+    sys.stdout.reconfigure(encoding="utf-8")
     print("=" * 70)
     print("🚀 PDF PARSER DEBUG TEST")
     print("=" * 70)
@@ -26,7 +28,7 @@ def main():
     # ------------------------------------------------------------------
     # Locate PDF
     # ------------------------------------------------------------------
-    pdf_path = Path("data/pdf/employee-handbook.pdf")
+    pdf_path = Path("data/pdf/scanned-policy-doc.pdf")
 
     print(f"\n📂 Looking for PDF:")
     print(pdf_path.resolve())
@@ -58,11 +60,18 @@ def main():
 
     try:
         documents = parser.parse(pdf_path)
-
-    except Exception as e:
-        print("❌ Parser crashed!")
-        traceback.print_exc()
-        return
+        if not documents:
+            raise ValueError("No text could be extracted")
+    except (ValueError, Exception) as val_err:
+        print("\n⚠️  WARNING: Could not parse scanned PDF (likely missing PaddleOCR/numpy/mupdf).")
+        print("💡 Falling back to testing native text PDF: data/pdf/employee-handbook.pdf")
+        pdf_path = Path("data/pdf/employee-handbook.pdf")
+        try:
+            documents = parser.parse(pdf_path)
+        except Exception as e:
+            print("❌ Native PDF parser failed!")
+            traceback.print_exc()
+            return
 
     print("✅ Parsing completed")
 

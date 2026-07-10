@@ -15,6 +15,7 @@ pandas>=2.2.0
 paddleocr>=2.7.0
 paddlepaddle-cpu>=2.6.0  # CPU version for ease of install
 Pillow>=10.0.0
+pytesseract>=0.3.10  # optional: use OCR_ENGINE=Tesseract when PaddleOCR is unavailable
 
 # Embeddings & Re-ranking
 sentence-transformers>=3.0.0

@@ -9,6 +9,7 @@ transparently falls back to **PaddleOCR** for that page.
 import hashlib
 import json
 import logging
+import traceback
 from pathlib import Path
 from typing import List, Optional, Any
 
@@ -109,7 +110,7 @@ class PDFParser(DocumentParser):
                         logger.debug(
                             f"Page {page_num} has {len(page_text)} chars - triggering OCR fallback"
                         )
-                        ocr_text = self._extract_text_with_ocr(page, page_num)
+                        ocr_text = self._extract_text_with_ocr(file_path, page_num)
                         if ocr_text:
                             page_text = ocr_text
                             is_scanned = True
@@ -148,7 +149,8 @@ class PDFParser(DocumentParser):
 
         full_content = "\n\n".join(all_text_parts).strip()
         if not full_content:
-            raise ValueError(f"No text could be extracted from PDF: {file_path}")
+            logger.warning("No text could be extracted from PDF: %s", file_path)
+            return []
 
         title = self._extract_title(sections, file_path)
         doc_id = hashlib.sha256(full_content.encode("utf-8")).hexdigest()
@@ -175,54 +177,155 @@ class PDFParser(DocumentParser):
 
         return [doc]
 
-    def _extract_text_with_ocr(self, page: Any, page_num: int) -> str:
-        """Run OCR on a single PDF page using PaddleOCR.
+    def _extract_text_with_ocr(self, file_path: Path, page_num: int) -> str:
+        """Run OCR on a single PDF page using the configured OCR engine."""
+        engine = config.OCR_ENGINE.strip().lower()
+        if engine == "paddleocr":
+            text = self._ocr_with_paddleocr(file_path, page_num)
+            if text:
+                return text
 
-        The page is rasterised to a PIL ``Image`` via pdfplumber's
-        built-in renderer, then passed to PaddleOCR.
+            logger.warning(
+                "PaddleOCR failed or produced no text on page %d; falling back to Tesseract if available",
+                page_num,
+            )
+            return self._ocr_with_tesseract(file_path, page_num)
 
-        Args:
-            page: A ``pdfplumber.Page`` object.
-            page_num: 1-indexed page number (for logging).
+        if engine in ("tesseract", "pytesseract"):
+            return self._ocr_with_tesseract(file_path, page_num)
 
-        Returns:
-            Extracted text as a single string, or ``""`` on failure.
-        """
+        logger.warning(
+            "Unsupported OCR engine '%s' configured. Skipping OCR for page %d",
+            config.OCR_ENGINE,
+            page_num,
+        )
+        return ""
+
+    @staticmethod
+    def _rasterize_pdf_page(file_path: Path, page_num: int):
+        """Render a PDF page to a PIL image."""
+        try:
+            import pdfplumber
+
+            with pdfplumber.open(str(file_path)) as pdf:
+                page = pdf.pages[page_num - 1]
+                page_image = page.to_image(resolution=config.OCR_RENDER_DPI)
+
+            if hasattr(page_image, "original") and page_image.original is not None:
+                return page_image.original
+            if hasattr(page_image, "pil") and page_image.pil is not None:
+                return page_image.pil
+
+            raise RuntimeError("pdfplumber failed to produce a PIL image")
+        except Exception as exc:
+            logger.warning(
+                "pdfplumber rasterization failed for page %d: %s; trying PyMuPDF fallback",
+                page_num,
+                exc,
+            )
+
+        try:
+            import fitz  # PyMuPDF
+            from PIL import Image
+
+            with fitz.open(str(file_path)) as doc:
+                page = doc.load_page(page_num - 1)
+                pix = page.get_pixmap(dpi=config.OCR_RENDER_DPI)
+
+            mode = "RGBA" if pix.alpha else "RGB"
+            return Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Unable to rasterize PDF page {page_num}: {exc}"
+            ) from exc
+
+    def _ocr_with_paddleocr(self, file_path: Path, page_num: int) -> str:
         try:
             import numpy as np  # lazy import
             from paddleocr import PaddleOCR as OCR  # lazy import  # type: ignore[import]
 
-            pil_image = page.to_image(resolution=300).original
-            image_array = np.array(pil_image)
+            image = self._rasterize_pdf_page(file_path, page_num)
+            image_array = np.array(image.convert("RGB"))
 
-            # Initialize PaddleOCR client (using CPU by default, English language, quiet logging)
             if self.ocr_client is None:
-                self.ocr_client = OCR(
-                    use_angle_cls=True,
-                    lang=config.OCR_LANGUAGE,
-                    show_log=False,
-                    use_gpu=False,
-                )
+                try:
+                    self.ocr_client = OCR(
+                        use_angle_cls=True,
+                        lang=config.OCR_LANGUAGE,
+                        use_gpu=False,
+                    )
+                except (TypeError, ValueError):
+                    try:
+                        self.ocr_client = OCR(
+                            lang=config.OCR_LANGUAGE,
+                            use_gpu=False,
+                        )
+                    except (TypeError, ValueError):
+                        self.ocr_client = OCR(
+                            lang=config.OCR_LANGUAGE.strip().lower()
+                        )
             result = self.ocr_client.ocr(image_array, cls=True)
 
             if not result or not result[0]:
                 return ""
 
-            # Extract text from layout lines
             text_lines = [line[1][0] for line in result[0]]
             text = "\n".join(text_lines)
 
-            logger.debug(
-                f"OCR extracted {len(text)} chars from page {page_num}"
-            )
+            logger.debug("PaddleOCR extracted %d chars from page %d", len(text), page_num)
             return text
         except ImportError:
             logger.warning(
-                f"paddleocr or numpy not installed – skipping OCR for page {page_num}"
+                "PaddleOCR or its dependencies are not installed. Skipping OCR for page %d",
+                page_num,
             )
             return ""
-        except Exception as exc:
-            logger.warning(f"OCR failed for page {page_num}: {exc}")
+        except MemoryError:
+            logger.exception("PaddleOCR failed with MemoryError on page %d", page_num)
+            return ""
+        except Exception:
+            logger.exception("PaddleOCR failed on page %d", page_num)
+            return ""
+
+    def _ocr_with_tesseract(self, file_path: Path, page_num: int) -> str:
+        try:
+            import os
+            import shutil
+            import pytesseract  # lazy import  # type: ignore[import]
+
+            tesseract_cmd = shutil.which("tesseract")
+            if tesseract_cmd:
+                pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+
+            if "TESSDATA_PREFIX" not in os.environ and tesseract_cmd:
+                tessdata_dir = Path(tesseract_cmd).resolve().parent / "tessdata"
+                if tessdata_dir.exists():
+                    os.environ["TESSDATA_PREFIX"] = str(tessdata_dir)
+                    logger.debug("Set TESSDATA_PREFIX=%s", tessdata_dir)
+
+            language = config.OCR_LANGUAGE.strip().lower()
+            if language == "en":
+                language = "eng"
+
+            image = self._rasterize_pdf_page(file_path, page_num)
+            text = pytesseract.image_to_string(
+                image.convert("RGB"),
+                lang=language,
+                config="--psm 1",
+            )
+            logger.debug("Tesseract OCR extracted %d chars from page %d", len(text), page_num)
+            return text.strip()
+        except ImportError:
+            logger.warning(
+                "pytesseract is not installed. Install pytesseract and a Tesseract binary to enable Tesseract OCR. Skipping OCR for page %d",
+                page_num,
+            )
+            return ""
+        except pytesseract.pytesseract.TesseractError as exc:
+            logger.exception("Tesseract OCR command failed on page %d: %s", page_num, exc)
+            return ""
+        except Exception:
+            logger.exception("Tesseract OCR failed on page %d", page_num)
             return ""
 
     @staticmethod
