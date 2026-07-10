@@ -28,7 +28,7 @@ def main():
     # ------------------------------------------------------------------
     # Locate PDF
     # ------------------------------------------------------------------
-    pdf_path = Path("data/pdf/scanned-policy-doc.pdf")
+    pdf_path = Path("data/pdf/employee-handbook.pdf")
 
     print(f"\n📂 Looking for PDF:")
     print(pdf_path.resolve())

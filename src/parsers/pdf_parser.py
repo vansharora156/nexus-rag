@@ -19,6 +19,10 @@ from .base import DocumentParser, ParsedDocument, DocumentSection, SourceType
 logger = logging.getLogger(__name__)
 
 
+class OCRUnavailableError(Exception):
+    """Raised when OCR cannot be performed in the current environment."""
+
+
 class PDFParser(DocumentParser):
     """Parser for PDF documents with automatic OCR fallback.
 
@@ -33,9 +37,16 @@ class PDFParser(DocumentParser):
     Attributes:
         OCR_THRESHOLD: Minimum characters per page before OCR is
             triggered. Defaults to ``50``.
+        OCR_MAX_PIXELS: Maximum pixel count for OCR images to reduce
+            memory usage.
+        OCR_MAX_DIMENSION: Maximum width or height for OCR images.
+            Large pages are downsampled before OCR.
     """
 
     OCR_THRESHOLD: int = 50
+    OCR_MAX_PIXELS: int = 1_200_000
+    OCR_MAX_DIMENSION: int = 1200
+
     def __init__(self):
         """
         Initialize parser.
@@ -43,6 +54,8 @@ class PDFParser(DocumentParser):
         PaddleOCR initialization is expensive.
         """
         self.ocr_client = None
+        self.ocr_enabled = True
+        self._fitz_available: Optional[bool] = None
 
     def supported_extensions(self) -> List[str]:
         """Return extensions this parser handles.
@@ -110,7 +123,15 @@ class PDFParser(DocumentParser):
                         logger.debug(
                             f"Page {page_num} has {len(page_text)} chars - triggering OCR fallback"
                         )
-                        ocr_text = self._extract_text_with_ocr(file_path, page_num)
+                        try:
+                            ocr_text = self._extract_text_with_ocr(file_path, page_num)
+                        except OCRUnavailableError as exc:
+                            logger.warning(
+                                "Skipping scanned PDF '%s': OCR unavailable (%s)",
+                                file_path.name,
+                                exc,
+                            )
+                            return []
                         if ocr_text:
                             page_text = ocr_text
                             is_scanned = True
@@ -181,7 +202,17 @@ class PDFParser(DocumentParser):
         """Run OCR on a single PDF page using the configured OCR engine."""
         engine = config.OCR_ENGINE.strip().lower()
         if engine == "paddleocr":
-            text = self._ocr_with_paddleocr(file_path, page_num)
+            if not self.ocr_enabled:
+                logger.warning(
+                    "PaddleOCR has been disabled after a previous failure. Falling back to Tesseract for page %d",
+                    page_num,
+                )
+                return self._ocr_with_tesseract(file_path, page_num)
+
+            try:
+                text = self._ocr_with_paddleocr(file_path, page_num)
+            except OCRUnavailableError:
+                raise
             if text:
                 return text
 
@@ -194,34 +225,39 @@ class PDFParser(DocumentParser):
         if engine in ("tesseract", "pytesseract"):
             return self._ocr_with_tesseract(file_path, page_num)
 
-        logger.warning(
-            "Unsupported OCR engine '%s' configured. Skipping OCR for page %d",
-            config.OCR_ENGINE,
-            page_num,
+        raise OCRUnavailableError(
+            f"Unsupported OCR engine '{config.OCR_ENGINE}' configured"
         )
-        return ""
 
-    @staticmethod
-    def _rasterize_pdf_page(file_path: Path, page_num: int):
+    def _rasterize_pdf_page(self, file_path: Path, page_num: int, dpi: Optional[int] = None):
         """Render a PDF page to a PIL image."""
+        dpi = dpi or config.OCR_RENDER_DPI
         try:
             import pdfplumber
 
             with pdfplumber.open(str(file_path)) as pdf:
                 page = pdf.pages[page_num - 1]
-                page_image = page.to_image(resolution=config.OCR_RENDER_DPI)
+                page_image = page.to_image(resolution=dpi)
 
             if hasattr(page_image, "original") and page_image.original is not None:
                 return page_image.original
             if hasattr(page_image, "pil") and page_image.pil is not None:
                 return page_image.pil
+            if hasattr(page_image, "to_pil"):
+                return page_image.to_pil()
 
             raise RuntimeError("pdfplumber failed to produce a PIL image")
         except Exception as exc:
             logger.warning(
-                "pdfplumber rasterization failed for page %d: %s; trying PyMuPDF fallback",
+                "pdfplumber rasterization failed for page %d at dpi %d: %s; trying PyMuPDF fallback",
                 page_num,
+                dpi,
                 exc,
+            )
+
+        if self._fitz_available is False:
+            raise RuntimeError(
+                f"Unable to rasterize PDF page {page_num}: PyMuPDF fallback previously failed"
             )
 
         try:
@@ -230,11 +266,41 @@ class PDFParser(DocumentParser):
 
             with fitz.open(str(file_path)) as doc:
                 page = doc.load_page(page_num - 1)
-                pix = page.get_pixmap(dpi=config.OCR_RENDER_DPI)
+                pix = page.get_pixmap(dpi=dpi)
 
             mode = "RGBA" if pix.alpha else "RGB"
+            self._fitz_available = True
             return Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+        except ImportError as exc:
+            self._fitz_available = False
+            raise RuntimeError(
+                f"Unable to rasterize PDF page {page_num}: PyMuPDF is not installed: {exc}"
+            ) from exc
+        except MemoryError as exc:
+            if dpi > 72:
+                lower_dpi = max(72, dpi // 2)
+                logger.warning(
+                    "PyMuPDF ran out of memory at dpi %d for page %d; retrying at lower dpi %d",
+                    dpi,
+                    page_num,
+                    lower_dpi,
+                )
+                return self._rasterize_pdf_page(file_path, page_num, dpi=lower_dpi)
+            raise RuntimeError(
+                f"Unable to rasterize PDF page {page_num}: {exc}"
+            ) from exc
         except Exception as exc:
+            message = str(exc).lower()
+            if dpi > 72 and "malloc" in message:
+                lower_dpi = max(72, dpi // 2)
+                logger.warning(
+                    "PyMuPDF malloc failed at dpi %d for page %d; retrying at lower dpi %d",
+                    dpi,
+                    page_num,
+                    lower_dpi,
+                )
+                return self._rasterize_pdf_page(file_path, page_num, dpi=lower_dpi)
+
             raise RuntimeError(
                 f"Unable to rasterize PDF page {page_num}: {exc}"
             ) from exc
@@ -245,6 +311,7 @@ class PDFParser(DocumentParser):
             from paddleocr import PaddleOCR as OCR  # lazy import  # type: ignore[import]
 
             image = self._rasterize_pdf_page(file_path, page_num)
+            image = self._prepare_ocr_image(image, page_num)
             image_array = np.array(image.convert("RGB"))
 
             if self.ocr_client is None:
@@ -272,18 +339,59 @@ class PDFParser(DocumentParser):
 
             logger.debug("PaddleOCR extracted %d chars from page %d", len(text), page_num)
             return text
-        except ImportError:
+        except ImportError as exc:
+            raise OCRUnavailableError(
+                "PaddleOCR or its dependencies are not installed"
+            ) from exc
+        except MemoryError as exc:
             logger.warning(
-                "PaddleOCR or its dependencies are not installed. Skipping OCR for page %d",
+                "PaddleOCR failed with MemoryError on page %d: %s",
                 page_num,
+                exc,
             )
+            self.ocr_enabled = False
             return ""
-        except MemoryError:
-            logger.exception("PaddleOCR failed with MemoryError on page %d", page_num)
+        except Exception as exc:
+            logger.warning("PaddleOCR failed on page %d: %s", page_num, exc)
             return ""
-        except Exception:
-            logger.exception("PaddleOCR failed on page %d", page_num)
-            return ""
+
+    def _prepare_ocr_image(
+        self,
+        image,
+        page_num: int,
+        max_pixels: Optional[int] = None,
+        max_dimension: Optional[int] = None,
+    ):
+        """Downsample large images to reduce memory usage during OCR."""
+        try:
+            from PIL import Image
+        except ImportError:
+            return image
+
+        max_pixels = max_pixels or self.OCR_MAX_PIXELS
+        max_dimension = max_dimension or self.OCR_MAX_DIMENSION
+
+        width, height = image.size
+        pixel_count = width * height
+        if pixel_count <= max_pixels and max(width, height) <= max_dimension:
+            return image
+
+        scale = min(
+            (max_pixels / pixel_count) ** 0.5,
+            max_dimension / max(width, height),
+        )
+        new_width = max(1, int(width * scale))
+        new_height = max(1, int(height * scale))
+
+        logger.warning(
+            "Downsampling OCR image for page %d from %dx%d to %dx%d",
+            page_num,
+            width,
+            height,
+            new_width,
+            new_height,
+        )
+        return image.resize((new_width, new_height), Image.LANCZOS)
 
     def _ocr_with_tesseract(self, file_path: Path, page_num: int) -> str:
         try:
@@ -306,24 +414,53 @@ class PDFParser(DocumentParser):
                 language = "eng"
 
             image = self._rasterize_pdf_page(file_path, page_num)
-            text = pytesseract.image_to_string(
-                image.convert("RGB"),
-                lang=language,
-                config="--psm 1",
-            )
+            image = self._prepare_ocr_image(image, page_num)
+            try:
+                text = pytesseract.image_to_string(
+                    image.convert("RGB"),
+                    lang=language,
+                    config="--psm 1",
+                )
+            except Exception as exc:
+                message = str(exc).lower()
+                if "bad_alloc" in message or "out of memory" in message or "malloc" in message:
+                    logger.warning(
+                        "Tesseract failed on page %d due to memory error; retrying with smaller image",
+                        page_num,
+                    )
+                    image = self._prepare_ocr_image(
+                        image,
+                        page_num,
+                        max_pixels=max(300_000, self.OCR_MAX_PIXELS // 4),
+                        max_dimension=max(800, self.OCR_MAX_DIMENSION // 2),
+                    )
+                    try:
+                        text = pytesseract.image_to_string(
+                            image.convert("RGB"),
+                            lang=language,
+                            config="--psm 1",
+                        )
+                    except Exception as exc2:
+                        logger.warning(
+                            "Tesseract retry failed on page %d: %s",
+                            page_num,
+                            exc2,
+                        )
+                        raise
+                else:
+                    raise
             logger.debug("Tesseract OCR extracted %d chars from page %d", len(text), page_num)
             return text.strip()
-        except ImportError:
-            logger.warning(
-                "pytesseract is not installed. Install pytesseract and a Tesseract binary to enable Tesseract OCR. Skipping OCR for page %d",
-                page_num,
-            )
-            return ""
+        except ImportError as exc:
+            raise OCRUnavailableError(
+                "pytesseract is not installed. Install pytesseract and a Tesseract binary to enable Tesseract OCR."
+            ) from exc
         except pytesseract.pytesseract.TesseractError as exc:
-            logger.exception("Tesseract OCR command failed on page %d: %s", page_num, exc)
-            return ""
-        except Exception:
-            logger.exception("Tesseract OCR failed on page %d", page_num)
+            raise OCRUnavailableError(
+                f"Tesseract OCR command failed: {exc}"
+            ) from exc
+        except Exception as exc:
+            logger.warning("Tesseract OCR failed on page %d: %s", page_num, exc)
             return ""
 
     @staticmethod
