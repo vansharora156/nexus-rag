@@ -5,6 +5,7 @@ from .markdown_parser import MarkdownParser
 from .pdf_parser import PDFParser
 from .slack_parser import SlackParser
 from .excel_parser import ExcelParser
+from .registry import ParserRegistry
 
 __all__ = [
     "DocumentParser",
@@ -15,4 +16,5 @@ __all__ = [
     "PDFParser",
     "SlackParser",
     "ExcelParser",
+    "ParserRegistry",
 ]
