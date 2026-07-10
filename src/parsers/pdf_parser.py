@@ -252,13 +252,11 @@ class PDFParser(DocumentParser):
                     self.ocr_client = OCR(
                         use_angle_cls=True,
                         lang=config.OCR_LANGUAGE,
-                        use_gpu=False,
                     )
                 except (TypeError, ValueError):
                     try:
                         self.ocr_client = OCR(
                             lang=config.OCR_LANGUAGE,
-                            use_gpu=False,
                         )
                     except (TypeError, ValueError):
                         self.ocr_client = OCR(
