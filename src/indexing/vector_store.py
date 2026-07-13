@@ -48,7 +48,7 @@ class VectorStore:
                 self._client = qdrant_client.QdrantClient(path=self.path)
         return self._client
 
-    def recreate_collection(self, dimension: int = 1024) -> None:
+    def recreate_collection(self, dimension: int = 768) -> None:
         """Delete and recreate the collection with correct dimensions and index payload fields."""
         client = self.client
         logger.info(f"Recreating collection '{self.collection_name}' (dimension={dimension})")

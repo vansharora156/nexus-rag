@@ -91,8 +91,13 @@ class Config:
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
     # -- Embeddings & Reranking -----------------------------------------------
-    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "BAAI/bge-m3")
+    # EMBEDDING_BACKEND: "gemini" uses the Google text-embedding-004 API (no local
+    # model download, ~zero RAM); "local" uses SentenceTransformers (needs 600 MB+).
+    EMBEDDING_BACKEND: str = os.getenv("EMBEDDING_BACKEND", "gemini")
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")  # used only for "local" backend
+    GEMINI_EMBEDDING_MODEL: str = os.getenv("GEMINI_EMBEDDING_MODEL", "models/text-embedding-004")
     RERANKER_MODEL: str = os.getenv("RERANKER_MODEL", "BAAI/bge-reranker-large")
+    EMBED_BATCH_SIZE: int = int(os.getenv("EMBED_BATCH_SIZE", "32"))
 
     # -- Retrieval ------------------------------------------------------------
     RETRIEVAL_TOP_K: int = int(os.getenv("RETRIEVAL_TOP_K", "20"))
