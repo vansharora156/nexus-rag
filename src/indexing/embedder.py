@@ -21,8 +21,8 @@ from src.config import config
 
 logger = logging.getLogger(__name__)
 
-# Gemini text-embedding-004 always produces 768-dimensional vectors.
-_GEMINI_DIMENSION = 768
+# gemini-embedding-001 produces 3072-dimensional vectors.
+_GEMINI_DIMENSION = 3072
 # Sensible fallback when bge-small-en-v1.5 dimension cannot be queried.
 _LOCAL_DIMENSION_FALLBACK = 384
 
@@ -59,9 +59,14 @@ class _GeminiBackend:
                     "    GEMINI_API_KEY=your-key-here\n"
                     "Get a free key at: https://aistudio.google.com/apikey"
                 )
-            import requests  # stdlib-like; tiny import footprint
+            import requests
             self._session = requests.Session()
-            self._session.headers.update({"Content-Type": "application/json"})
+            self._session.headers.update({
+                "Content-Type": "application/json",
+                # Disable gzip: prevents urllib3 holding compressed + decompressed
+                # data in RAM simultaneously, which causes MemoryError on low-RAM machines.
+                "Accept-Encoding": "identity",
+            })
             logger.info("Gemini REST backend ready (model=%s)", self.model_name)
         return self._session
 
@@ -69,7 +74,7 @@ class _GeminiBackend:
         """POST *body* to *endpoint* and return the parsed JSON response."""
         session = self._get_session()
         url = f"{self._BASE}/{endpoint}?key={self._api_key}"
-        resp = session.post(url, json=body, timeout=60)
+        resp = session.post(url, json=body, timeout=15)
         if not resp.ok:
             raise RuntimeError(
                 f"Gemini API error {resp.status_code}: {resp.text[:400]}"
@@ -82,27 +87,20 @@ class _GeminiBackend:
         task_type: str = "RETRIEVAL_DOCUMENT",
         batch_size: int = 32,
     ) -> np.ndarray:
-        """Embed *texts* via ``batchEmbedContents`` and return (N, 768) float32."""
+        """Embed *texts* via ``embedContent`` calls and return (N, 768) float32."""
         all_vectors: List[List[float]] = []
+        model_id = self.model_name.split('/')[-1]
+        total = len(texts)
 
-        for i in range(0, len(texts), batch_size):
-            batch = texts[i : i + batch_size]
+        for idx, text in enumerate(texts):
             body = {
-                "requests": [
-                    {
-                        "model": self.model_name,
-                        "content": {"parts": [{"text": t}]},
-                        "taskType": task_type,
-                    }
-                    for t in batch
-                ]
+                "content": {"parts": [{"text": text}]},
+                "taskType": task_type,
             }
-            data = self._post(
-                f"models/{self.model_name.split('/')[-1]}:batchEmbedContents",
-                body,
-            )
-            for emb in data["embeddings"]:
-                all_vectors.append(emb["values"])
+            data = self._post(f"models/{model_id}:embedContent", body)
+            all_vectors.append(data["embedding"]["values"])
+            if (idx + 1) % 5 == 0 or idx == 0 or (idx + 1) == total:
+                logger.info("  embedded %d / %d chunks", idx + 1, total)
 
         arr = np.array(all_vectors, dtype=np.float32)
         # L2-normalise for reliable cosine similarity
@@ -112,15 +110,12 @@ class _GeminiBackend:
 
     def encode_single(self, text: str, task_type: str = "RETRIEVAL_QUERY") -> np.ndarray:
         """Embed a single string via ``embedContent``."""
+        model_id = self.model_name.split('/')[-1]
         body = {
-            "model": self.model_name,
             "content": {"parts": [{"text": text}]},
             "taskType": task_type,
         }
-        data = self._post(
-            f"models/{self.model_name.split('/')[-1]}:embedContent",
-            body,
-        )
+        data = self._post(f"models/{model_id}:embedContent", body)
         vec = np.array(data["embedding"]["values"], dtype=np.float32)
         norm = np.linalg.norm(vec)
         return vec / norm if norm > 0 else vec
@@ -240,7 +235,7 @@ class Embedder:
     def is_loaded(self) -> bool:
         """Return True if the backend has been initialised / connected."""
         if self._backend_name == "gemini":
-            return self._backend._client is not None
+            return self._backend._session is not None
         return self._backend._model is not None
 
     @property
