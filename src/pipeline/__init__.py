@@ -1,7 +1,11 @@
-"""src.pipeline module initialization for NexusRAG."""
+"""NexusRAG pipeline orchestration layer.
 
-from .ingest import IngestionPipeline
+Exports both pipeline orchestrators:
+- IngestionPipeline: document parsing → chunking → dedup → embed → index
+- QueryPipeline:     query rewrite → retrieve → rerank → generate
+"""
 
-__all__ = [
-    "IngestionPipeline",
-]
+from src.pipeline.ingest import IngestionPipeline
+from src.pipeline.query import QueryPipeline
+
+__all__ = ["IngestionPipeline", "QueryPipeline"]
