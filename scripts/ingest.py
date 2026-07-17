@@ -31,13 +31,13 @@ def main():
     try:
         stats = pipeline.ingest_directory(data_dir, recreate_collection=True)
         print("\n" + "=" * 50)
-        print("🎉 INGESTION PIPELINE SUMMARY")
+        print("INGESTION PIPELINE SUMMARY")
         print("=" * 50)
-        print(f"📁 Files parsed and processed: {stats['files_processed']}")
-        print(f"🧩 Text chunks generated:      {stats['chunks_generated']}")
-        print(f"🔍 Near-duplicates flagged:    {stats['duplicates_flagged']}")
-        print(f"✅ Canonical chunks indexed:   {stats['canonical_count']}")
-        print(f"⏱️ Ingestion time elapsed:     {stats['elapsed_seconds']} seconds")
+        print(f"Files parsed and processed : {stats['files_processed']}")
+        print(f"Text chunks generated      : {stats['chunks_generated']}")
+        print(f"Near-duplicates flagged    : {stats['duplicates_flagged']}")
+        print(f"Canonical chunks indexed   : {stats['canonical_count']}")
+        print(f"Ingestion time elapsed     : {stats['elapsed_seconds']} seconds")
         print("=" * 50 + "\n")
         
     except Exception as e:
