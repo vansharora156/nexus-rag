@@ -15,6 +15,7 @@ The system prompt instructs Gemini to:
 """
 
 import logging
+import time
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -91,8 +92,13 @@ class GeminiGenerator:
             logger.info("GeminiGenerator ready (model=%s)", self._model)
         return self._session
 
-    def _call_gemini(self, prompt: str) -> str:
-        """Send the assembled prompt to Gemini and return the answer text."""
+    def _call_gemini(self, prompt: str, max_retries: int = 3) -> str:
+        """Send the assembled prompt to Gemini and return the answer text.
+
+        Automatically retries on 429 rate-limit responses using exponential
+        backoff (15s → 30s → 60s) so that bursts of questions don't fail
+        on the free-tier 5 req/min quota.
+        """
         session = self._get_session()
         url = (
             f"{self._BASE}/models/{self._model}:generateContent"
@@ -105,16 +111,36 @@ class GeminiGenerator:
                 "maxOutputTokens": self._max_output_tokens,
             },
         }
-        resp = session.post(url, json=body, timeout=30)
-        if not resp.ok:
-            raise RuntimeError(
-                f"Gemini API error {resp.status_code}: {resp.text[:400]}"
-            )
-        data = resp.json()
-        try:
-            return data["candidates"][0]["content"]["parts"][0]["text"].strip()
-        except (KeyError, IndexError) as exc:
-            raise RuntimeError(f"Unexpected Gemini response format: {data}") from exc
+
+        wait_secs = 15
+        for attempt in range(1, max_retries + 1):
+            resp = session.post(url, json=body, timeout=30)
+
+            if resp.status_code == 429:
+                if attempt < max_retries:
+                    logger.warning(
+                        "Gemini rate-limited (429) — waiting %ds before retry %d/%d",
+                        wait_secs, attempt, max_retries,
+                    )
+                    time.sleep(wait_secs)
+                    wait_secs *= 2   # 15 → 30 → 60
+                    continue
+                raise RuntimeError(
+                    f"Gemini API error {resp.status_code}: {resp.text[:400]}"
+                )
+
+            if not resp.ok:
+                raise RuntimeError(
+                    f"Gemini API error {resp.status_code}: {resp.text[:400]}"
+                )
+
+            data = resp.json()
+            try:
+                return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+            except (KeyError, IndexError) as exc:
+                raise RuntimeError(f"Unexpected Gemini response format: {data}") from exc
+
+        raise RuntimeError("Gemini API failed after all retries.")
 
     # ------------------------------------------------------------------
     # Public API

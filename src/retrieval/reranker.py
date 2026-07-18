@@ -18,6 +18,7 @@ by descending score and the top-K are returned.
 import json
 import logging
 import re
+import time
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -93,6 +94,7 @@ class CrossEncoderReranker:
         """Ask Gemini to score a single (query, passage) pair.
 
         Returns a float in [0, 10]; defaults to 0.0 on error.
+        Retries up to 3 times on 429 rate-limit responses.
         """
         truncated = passage[: self._passage_max_chars]
         prompt = _SCORE_PROMPT.format(query=query, passage=truncated)
@@ -110,23 +112,40 @@ class CrossEncoderReranker:
             },
         }
 
-        try:
-            resp = session.post(url, json=body, timeout=15)
-            if not resp.ok:
-                logger.debug("Reranker API error %s: %s", resp.status_code, resp.text[:200])
+        wait_secs = 15
+        for attempt in range(1, 4):   # up to 3 attempts
+            try:
+                resp = session.post(url, json=body, timeout=15)
+
+                if resp.status_code == 429:
+                    if attempt < 3:
+                        logger.warning(
+                            "Reranker rate-limited (429) - waiting %ds (retry %d/3)",
+                            wait_secs, attempt,
+                        )
+                        time.sleep(wait_secs)
+                        wait_secs *= 2
+                        continue
+                    logger.debug("Reranker 429 after all retries, score=0.0")
+                    return 0.0
+
+                if not resp.ok:
+                    logger.debug("Reranker API error %s: %s", resp.status_code, resp.text[:200])
+                    return 0.0
+
+                raw_text = (
+                    resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                    .strip()
+                )
+                raw_text = re.sub(r"```(?:json)?", "", raw_text).strip().strip("`")
+                data = json.loads(raw_text)
+                return float(data.get("score", 0))
+
+            except Exception as exc:
+                logger.debug("Reranker scoring failed: %s", exc)
                 return 0.0
 
-            raw_text = (
-                resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-                .strip()
-            )
-            # Parse {{"score": N}}
-            raw_text = re.sub(r"```(?:json)?", "", raw_text).strip().strip("`")
-            data = json.loads(raw_text)
-            return float(data.get("score", 0))
-        except Exception as exc:
-            logger.debug("Reranker scoring failed: %s", exc)
-            return 0.0
+        return 0.0
 
     # ------------------------------------------------------------------
     # Public API
