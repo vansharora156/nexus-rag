@@ -80,11 +80,6 @@ class GeminiGenerator:
 
     def _get_session(self) -> requests.Session:
         if self._session is None:
-            if not self._api_key:
-                raise RuntimeError(
-                    "GEMINI_API_KEY is not set. "
-                    "Add it to your .env file: GEMINI_API_KEY=your-key"
-                )
             self._session = requests.Session()
             self._session.headers.update(
                 {"Content-Type": "application/json", "Accept-Encoding": "identity"}
@@ -99,6 +94,11 @@ class GeminiGenerator:
         backoff (15s → 30s → 60s) so that bursts of questions don't fail
         on the free-tier 5 req/min quota.
         """
+        if not self._api_key:
+            raise RuntimeError(
+                "GEMINI_API_KEY is not set. "
+                "Add it to your .env file: GEMINI_API_KEY=your-key"
+            )
         session = self._get_session()
         url = (
             f"{self._BASE}/models/{self._model}:generateContent"
