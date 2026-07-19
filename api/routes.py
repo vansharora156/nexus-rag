@@ -151,9 +151,14 @@ async def health_endpoint(request: Request) -> HealthResponse:
     qdrant_points = 0
     status = "ok"
 
+    qp = getattr(request.app.state, "query_pipeline", None)
+
     # Check Qdrant
     try:
-        vs = VectorStore()
+        if qp is not None and hasattr(qp, "vector_store"):
+            vs = qp.vector_store
+        else:
+            vs = VectorStore()
         qdrant_points = vs.count
         details["qdrant"] = "connected"
     except Exception as exc:
@@ -166,7 +171,10 @@ async def health_endpoint(request: Request) -> HealthResponse:
 
     # Embedder info
     try:
-        emb = Embedder()
+        if qp is not None and hasattr(qp, "embedder"):
+            emb = qp.embedder
+        else:
+            emb = Embedder()
         details["embedder_dimension"] = emb.dimension
     except Exception as exc:
         details["embedder"] = f"error: {exc}"
