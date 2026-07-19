@@ -52,6 +52,15 @@ class QueryPipeline:
         use_query_rewriting: bool = True,
         top_k: Optional[int] = None,
     ):
+        import os
+        env_reranker = os.getenv("USE_RERANKER")
+        if env_reranker is not None:
+            use_reranker = env_reranker.lower() in ("true", "1", "yes")
+            
+        env_rewriting = os.getenv("USE_QUERY_REWRITING")
+        if env_rewriting is not None:
+            use_query_rewriting = env_rewriting.lower() in ("true", "1", "yes")
+
         self._top_k = top_k or config.RERANK_TOP_K
 
         # Initialise all components

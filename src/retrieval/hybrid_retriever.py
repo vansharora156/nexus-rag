@@ -189,7 +189,7 @@ class HybridRetriever:
         active_roles: Optional[List[str]] = None
         if username:
             active_roles = get_user_roles(username)
-            logger.info("User '%s' → roles: %s", username, active_roles)
+            logger.info("User '%s' -> roles: %s", username, active_roles)
 
         # 2. Query rewriting
         if self.use_query_rewriting:

@@ -47,6 +47,31 @@ Question: {query}
 Passage: {passage}
 """
 
+_BATCH_SCORE_PROMPT = """\
+You are a relevance scoring engine for an enterprise search system.
+
+Given a user question and a list of text passages, rate how relevant each passage is to answering the question.
+
+Score each passage from 0 to 10:
+  10 = Passage directly and completely answers the question
+   7 = Passage is highly relevant and contains key information
+   4 = Passage is somewhat relevant but only partially addresses the question
+   1 = Passage is tangentially related
+   0 = Passage is irrelevant
+
+Respond with ONLY a JSON array of objects, where each object has "index" (integer) and "score" (integer 0-10).
+Example response format:
+[
+  {{"index": 0, "score": 8}},
+  {{"index": 1, "score": 3}}
+]
+
+Question: {query}
+
+Passages to score:
+{passages_block}
+"""
+
 
 class CrossEncoderReranker:
     """Reranks retrieved candidates using Gemini-based relevance scoring.
@@ -89,6 +114,68 @@ class CrossEncoderReranker:
                 {"Content-Type": "application/json", "Accept-Encoding": "identity"}
             )
         return self._session
+
+    def _score_batch(self, query: str, passages: List[str]) -> Optional[List[float]]:
+        """Ask Gemini to score a list of passages in a single API call.
+
+        Returns a list of float scores matching the input passages list,
+        or None if batch scoring failed.
+        """
+        passages_list = []
+        for idx, passage in enumerate(passages):
+            truncated = passage[: self._passage_max_chars]
+            passages_list.append(f"Passage [{idx}]:\n{truncated}\n---")
+        passages_block = "\n\n".join(passages_list)
+
+        prompt = _BATCH_SCORE_PROMPT.format(query=query, passages_block=passages_block)
+        session = self._get_session()
+        url = (
+            f"{self._BASE}/models/{self._model}:generateContent"
+            f"?key={self._api_key}"
+        )
+        body = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.0,
+                "responseMimeType": "application/json",
+            },
+        }
+
+        wait_secs = 15
+        for attempt in range(1, 4):
+            try:
+                resp = session.post(url, json=body, timeout=25)
+                if resp.status_code == 429:
+                    if attempt < 3:
+                        logger.warning(
+                            "Batch Reranker rate-limited (429) - waiting %ds (retry %d/3)",
+                            wait_secs, attempt,
+                        )
+                        time.sleep(wait_secs)
+                        wait_secs *= 2
+                        continue
+                    logger.debug("Batch Reranker 429 after all retries.")
+                    return None
+
+                if not resp.ok:
+                    logger.debug("Batch Reranker API error %s: %s", resp.status_code, resp.text[:200])
+                    return None
+
+                raw_text = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+                raw_text = re.sub(r"```(?:json)?", "", raw_text).strip().strip("`")
+                data = json.loads(raw_text)
+
+                scores = [0.0] * len(passages)
+                for item in data:
+                    idx = int(item.get("index", -1))
+                    score = float(item.get("score", 0.0))
+                    if 0 <= idx < len(passages):
+                        scores[idx] = score
+                return scores
+            except Exception as exc:
+                logger.debug("Batch Reranker attempt %d failed: %s", attempt, exc)
+
+        return None
 
     def _score_one(self, query: str, passage: str) -> float:
         """Ask Gemini to score a single (query, passage) pair.
@@ -174,18 +261,28 @@ class CrossEncoderReranker:
             query[:60],
         )
 
-        scored: List[Dict[str, Any]] = []
-        for idx, chunk in enumerate(candidates):
-            passage = chunk.get("content", "")
-            score = self._score_one(query, passage)
-            scored.append({**chunk, "rerank_score": score})
-            logger.debug(
-                "  [%d/%d] chunk_id=%s  rerank_score=%.1f",
-                idx + 1,
-                len(candidates),
-                chunk.get("chunk_id", "?"),
-                score,
-            )
+        passages = [c.get("content", "") for c in candidates]
+        scores = self._score_batch(query, passages)
+
+        if scores is not None and len(scores) == len(candidates):
+            logger.info("Batch rerank succeeded.")
+            scored = []
+            for chunk, score in zip(candidates, scores):
+                scored.append({**chunk, "rerank_score": score})
+        else:
+            logger.warning("Batch reranking failed or mismatch; falling back to sequential scoring.")
+            scored = []
+            for idx, chunk in enumerate(candidates):
+                passage = chunk.get("content", "")
+                score = self._score_one(query, passage)
+                scored.append({**chunk, "rerank_score": score})
+                logger.debug(
+                    "  [%d/%d] chunk_id=%s  rerank_score=%.1f",
+                    idx + 1,
+                    len(candidates),
+                    chunk.get("chunk_id", "?"),
+                    score,
+                )
 
         scored.sort(key=lambda c: c["rerank_score"], reverse=True)
         top = scored[: self.top_k]

@@ -75,4 +75,7 @@ logs/
 # ---------- Misc ----------
 *.bak
 *.tmp
+
+# ---------- Vector Store Storage ----------
+qdrant_storage/
 ]]>

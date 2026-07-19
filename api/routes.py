@@ -7,8 +7,10 @@ POST /ingest   — Ingest a directory of documents into the knowledge base.
 GET  /health   — Service health check with index statistics.
 """
 
+import asyncio
 import logging
 from pathlib import Path
+from functools import partial
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -56,10 +58,15 @@ def _pipeline(request: Request):
 async def query_endpoint(body: QueryRequest, request: Request) -> QueryResponse:
     pipeline = _pipeline(request)
     try:
-        result = pipeline.query(
-            question=body.query,
-            username=body.username,
-            top_k=body.top_k,
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            partial(
+                pipeline.query,
+                question=body.query,
+                username=body.username,
+                top_k=body.top_k,
+            ),
         )
     except Exception as exc:
         logger.exception("Error in /query handler")
@@ -94,11 +101,14 @@ async def ingest_endpoint(body: IngestRequest, request: Request) -> IngestRespon
         )
 
     try:
-        pipeline = IngestionPipeline()
-        stats = pipeline.ingest_directory(
-            data_dir=data_dir,
-            recreate_collection=body.recreate_collection,
-        )
+        def _run_ingest():
+            pipeline = IngestionPipeline()
+            return pipeline.ingest_directory(
+                data_dir=data_dir,
+                recreate_collection=body.recreate_collection,
+            )
+        loop = asyncio.get_event_loop()
+        stats = await loop.run_in_executor(None, _run_ingest)
     except Exception as exc:
         logger.exception("Error in /ingest handler")
         return IngestResponse(status="error", message=str(exc))
@@ -107,7 +117,7 @@ async def ingest_endpoint(body: IngestRequest, request: Request) -> IngestRespon
     qp = getattr(request.app.state, "query_pipeline", None)
     if qp is not None:
         try:
-            qp.bm25_index.load()
+            await loop.run_in_executor(None, qp.bm25_index.load)
             logger.info("BM25 index reloaded into QueryPipeline after ingest.")
         except Exception as exc:
             logger.warning("Could not reload BM25 after ingest: %s", exc)
