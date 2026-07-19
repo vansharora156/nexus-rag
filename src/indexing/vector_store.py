@@ -48,6 +48,15 @@ class VectorStore:
                 self._client = qdrant_client.QdrantClient(path=self.path)
         return self._client
 
+    def close(self) -> None:
+        """Close the Qdrant client connection and release file locks."""
+        if self._client is not None:
+            try:
+                self._client.close()
+            except Exception as e:
+                logger.warning(f"Error closing Qdrant client: {e}")
+            self._client = None
+
     def recreate_collection(self, dimension: int = 3072) -> None:
         """Delete and recreate the collection with correct dimensions and index payload fields."""
         client = self.client

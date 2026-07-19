@@ -95,12 +95,15 @@ class IngestionPipeline:
         chunk_texts = [c.content for c in processed_chunks]
         embeddings = self.embedder.embed_texts(chunk_texts, show_progress=False)
         
-        # 5. Populate Qdrant vector database
-        if recreate_collection:
-            self.vector_store.recreate_collection(dimension=self.embedder.dimension)
-        
-        logger.info("Upserting records into Qdrant database...")
-        self.vector_store.add_chunks(processed_chunks, embeddings)
+        try:
+            # 5. Populate Qdrant vector database
+            if recreate_collection:
+                self.vector_store.recreate_collection(dimension=self.embedder.dimension)
+            
+            logger.info("Upserting records into Qdrant database...")
+            self.vector_store.add_chunks(processed_chunks, embeddings)
+        finally:
+            self.vector_store.close()
 
         # 6. Populate BM25 Index (lexical database)
         logger.info("Building BM25 sparse keyword index...")
