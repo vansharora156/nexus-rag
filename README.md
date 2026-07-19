@@ -24,6 +24,11 @@
 
 ---
 
+## 🎯 Problem Statement
+BigCorp, a global enterprise, has accumulated 15 years of internal knowledge fragmented across Confluence spaces, Slack thread histories, native/scanned PDFs, and Excel spreadsheets. The standard off-the-shelf RAG pipeline fails in this environment due to layout parsing issues on multi-column or scanned documents, loss of conversational context on Slack thread splits, document version duplication, and security group role exposure. **NexusRAG** addresses these challenges by normalizing dirty documents using layout-aware OCR and structured parsers, deduplicating near-identical files with MinHash LSH, running a Reciprocal Rank Fusion (RRF) search across BM25 and dense indices, and enforcing strict document-level Access Control List (ACL) permission filters dynamically at query time.
+
+---
+
 ## 🏗️ Architecture
 
 ```mermaid
@@ -74,17 +79,8 @@ Let's look at the pipeline infographic:
 
 ## 🎥 Demo
 
-🚧 **Demo coming soon**
-
-- **UI Preview**: Glassmorphism chat interface with interactive context cards.
-- **Query Pipeline**: Demonstration of real-time query expansion, HyDE document generation, and reranking.
-- **Enterprise Search**: Role-switching demonstration displaying dynamic ACL permission gating.
-
----
-
-## 📸 Screenshots
-
-🚧 **Screenshots and interface previews will be added here in Week 4** once the frontend layouts are fully completed.
+*   **Walkthrough Demo Video:** [NexusRAG Loom Demonstration (5 Min)](https://loom.com/placeholder-demo-nexus-rag)
+*   **Live Deployment URL:** [http://localhost:8000/ui](http://localhost:8000/ui) (FastAPI app gateway running locally)
 
 ---
 
@@ -100,6 +96,20 @@ Let's look at the pipeline infographic:
 | 🔄 | **Query Rewriting** | HyDE (Hypothetical Document Embeddings) + multi-query expansion for robust retrieval across terminology gaps. |
 | 📊 | **Evaluation Suite** | Ragas-compatible test harness across exact match, semantic, and ACL-filtered queries. |
 | 🎨 | **Glassmorphism UI** | Dark-mode interface with frosted-glass cards, smooth animations, and responsive design. |
+
+---
+
+## 🛠️ Tech Stack
+
+| Component | Selected Technology | Main Alternatives | Primary Decision Driver |
+|---|---|---|---|
+| **LLM Generator** | **Gemini 2.0 Flash / Groq** | OpenAI GPT-4o-mini, Local Llama-3 | Large context window (1M), fast speed, native multimodal features. |
+| **Vector DB** | **Qdrant** | ChromaDB, pgvector, Pinecone | Dynamic metadata payload filtering, extreme speed (Rust backend), local execution. |
+| **Lexical Search** | **BM25s** | ElasticSearch, Rank-BM25 | Lightweight pure Python implementation, fast token scoring. |
+| **OCR Engine** | **PaddleOCR** | Tesseract, EasyOCR | Superior multi-column document layout parsing and table extraction. |
+| **Embeddings** | **BAAI/bge-small-en-v1.5** | all-MiniLM-L6-v2, OpenAI | High performance, 512 context limit, local offline execution. |
+| **Reranker** | **BGE-Reranker-Large** | ms-marco-MiniLM | Local execution without API dependency, top BEIR/MTEB benchmarks. |
+| **Backend API** | **FastAPI** | Flask, Django | High performance, async support, native Pydantic schema validation. |
 
 ---
 
@@ -203,10 +213,41 @@ python scripts/ingest.py
 Launch the API backend and user interface:
 
 ```bash
-python -m uvicorn server.main:app --reload --port 8000
+python -m uvicorn api.app:app --reload --port 8000
 ```
 
-Access the dark-mode glassmorphism interface at [http://localhost:8000](http://localhost:8000).
+Access the API Swagger documentation at [http://localhost:8000/docs](http://localhost:8000/docs).
+
+### 5. Run Automated Tests
+
+To verify that each layer of the RAG pipeline is working perfectly, run the following automated test scripts:
+
+```bash
+# Run ACL security tests
+python scripts/day1_test_acl.py
+
+# Run RRF rank fusion and query rewriter tests
+python scripts/day2_test_rrf_rewriter.py
+
+# Run hybrid retrieval tests (unlocked Qdrant database)
+python scripts/day3_test_hybrid_retrieval.py
+
+# Run generation and citations verification
+python scripts/day4_test_generation.py
+
+# Run backend API endpoints verification
+python scripts/day6_test_api.py
+```
+
+---
+
+## 📊 Data
+
+NexusRAG ingests 4 heterogeneous enterprise data sources to simulate a real corporate workspace. All raw files are located under the `/data` folder, and detailed schemas, extraction paths, and license settings are documented in [docs/data.md](docs/data.md):
+*   **Confluence Wiki Pages:** Stored as Markdown files containing metadata frontmatter.
+*   **Company Policies and Handbooks:** Stored as native/scanned PDF files (supporting PaddleOCR fallback).
+*   **Slack Communication Logs:** Stored as structured thread conversations in JSON blocks.
+*   **Department Budgets:** Stored as CSV spreadsheet tables with column headers preserved.
 
 ---
 
@@ -223,24 +264,23 @@ We document major technology choices and design patterns using Architecture Deci
 
 ---
 
+## ⚠️ Known Limitations
+
+1.  **Google Gemini Free-Tier Quota Limit:** The free-tier API has a limit of 15 requests per minute (RPM). Under heavy search concurrency or during first-time database ingestion, you might see warning logs indicating exponential backoff attempts (15s → 30s → 60s). Using the local embedding backend + Groq completion backend bypasses these limits completely.
+2.  **Local SQLite Qdrant File Locks on Windows:** The local file-based Qdrant client locks the database directory exclusively. Standalone indexing scripts (like `scripts/ingest.py`) cannot run concurrently while the FastAPI server is actively running. The server must be stopped before executing manual ingestion updates.
+3.  **OCR CPU Processing Time:** Running PaddleOCR text/table extraction on legacy scanned documents can take 5–10 seconds per page on a standard CPU. Production environments should utilize GPU resources to accelerate layout analysis.
+
+---
+
 ## 🗺️ Roadmap
 
-*   [x] **Week 1: Documentation & Scaffolding**
-    *   Establish problem statement, initial design, tech stack selection, and ADRs.
-    *   Configure project scaffolding, folder structures, and package `__init__.py` files.
-*   [ ] **Week 2: Ingestion Parsers & Layout Analysis**
-    *   Implement Confluence Markdown, Slack thread JSON, and Excel/CSV parsers.
-    *   Build the scanned/text PDF parser integrated with **PaddleOCR**.
-*   [ ] **Week 3: Hybrid Retrieval & ACL Security**
-    *   Build **bm25s** indexer and Qdrant vector db handlers.
-    *   Implement Reciprocal Rank Fusion (RRF) and BGE-Reranker-Large cross-encoder.
-    *   Implement metadata-based ACL permission filtering.
-*   [ ] **Week 4: FastAPI & Web UI**
-    *   Deploy FastAPI gateway with authorization mocks.
-    *   Build dark-mode glassmorphism interface with inline citations and role selectors.
-*   [ ] **Week 5: Evaluation Suite**
-    *   Construct a 100 Q&A Golden Dataset.
-    *   Automate latency, accuracy, and ACL compliance security tests using **Ragas**.
+*   [x] **Core RAG Backend Ingestion:** Native parsers for Markdown, Excel, Slack, and PDF (PaddleOCR) completed.
+*   [x] **Hybrid Retrieval & Fusion:** BM25s + Dense Qdrant search fused via Reciprocal Rank Fusion (RRF) and reranked using BGE-Reranker-Large completed.
+*   [x] **ACL Security Policy:** Pre-retrieval and post-retrieval role-based permissions filtering completed.
+*   [x] **REST API Gateway:** FastAPI endpoints and Swagger diagnostics completed.
+*   [x] **Groq & Local Embedding Fallback:** Support for offline BGE embedding models and Groq API Completion integrations completed.
+*   [ ] **Interactive UI Dashboard (Next 2 Weeks):** Develop the glassmorphism dark-mode HTML/CSS/JS frontend panel connecting dynamic selectors to user query routes.
+*   [ ] **Advanced Table Column Clustering (Next 2 Weeks):** Add semantic group matching to column headers for complex financial sheets.
 
 ---
 
