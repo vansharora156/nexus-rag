@@ -79,8 +79,7 @@ Let's look at the pipeline infographic:
 
 ## 🎥 Demo
 
-*   **Walkthrough Demo Video:** [NexusRAG Loom Demonstration (5 Min)](https://loom.com/placeholder-demo-nexus-rag)
-*   **Live Deployment URL:** [http://localhost:8000/ui](http://localhost:8000/ui) (FastAPI app gateway running locally)
+*   **Local UI Access:** [http://localhost:8000/ui](http://localhost:8000/ui) (FastAPI app gateway running locally)
 
 ---
 
