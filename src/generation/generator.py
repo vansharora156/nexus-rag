@@ -142,6 +142,72 @@ class GeminiGenerator:
 
         raise RuntimeError("Gemini API failed after all retries.")
 
+    def _call_groq(self, prompt: str, max_retries: int = 3) -> str:
+        """Send the prompt to Groq Chat Completion API and return the answer.
+
+        Retries on 429 rate-limits using exponential backoff.
+        """
+        session = self._get_session()
+        api_key = config.GROQ_API_KEY
+        if not api_key:
+            raise RuntimeError(
+                "GROQ_API_KEY is not set. Add it to your .env file: GROQ_API_KEY=your-key"
+            )
+        model = config.GROQ_MODEL
+        url = "https://api.groq.com/openai/v1/chat/completions"
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+
+        body = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": "You are an expert enterprise knowledge assistant for AskTheCompany."},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": self._temperature,
+            "max_tokens": self._max_output_tokens,
+        }
+
+        wait_secs = 5
+        for attempt in range(1, max_retries + 1):
+            try:
+                resp = session.post(url, json=body, headers=headers, timeout=30)
+
+                if resp.status_code == 429:
+                    if attempt < max_retries:
+                        logger.warning(
+                            "Groq rate-limited (429) — waiting %ds before retry %d/%d",
+                            wait_secs, attempt, max_retries
+                        )
+                        time.sleep(wait_secs)
+                        wait_secs *= 2
+                        continue
+                    raise RuntimeError(f"Groq API error 429: {resp.text[:400]}")
+
+                if not resp.ok:
+                    raise RuntimeError(f"Groq API error {resp.status_code}: {resp.text[:400]}")
+
+                data = resp.json()
+                return data["choices"][0]["message"]["content"].strip()
+            except Exception as exc:
+                if attempt == max_retries:
+                    raise exc
+                logger.warning("Groq API call attempt %d failed: %s. Retrying...", attempt, exc)
+                time.sleep(wait_secs)
+                wait_secs *= 2
+
+        raise RuntimeError("Groq API failed after all retries.")
+
+    def _call_llm(self, prompt: str, max_retries: int = 3) -> str:
+        """Call the configured LLM backend (Gemini or Groq)."""
+        backend = (config.LLM_BACKEND or "gemini").lower()
+        if backend == "groq":
+            return self._call_groq(prompt, max_retries)
+        return self._call_gemini(prompt, max_retries)
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -186,13 +252,14 @@ class GeminiGenerator:
         )
 
         logger.info(
-            "Generating answer for query '%s' with %d source(s).",
+            "Generating answer for query '%s' with %d source(s) using backend '%s'.",
             query[:60],
             len(citations),
+            config.LLM_BACKEND,
         )
 
         try:
-            answer = self._call_gemini(prompt)
+            answer = self._call_llm(prompt)
         except Exception as exc:
             logger.error("Answer generation failed: %s", exc)
             answer = (

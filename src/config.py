@@ -89,6 +89,9 @@ class Config:
     # -- LLM ------------------------------------------------------------------
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", os.getenv("GOOGLE_API_KEY", ""))
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    LLM_BACKEND: str = os.getenv("LLM_BACKEND", "gemini")  # "gemini" or "groq"
 
     # -- Embeddings & Reranking -----------------------------------------------
     # EMBEDDING_BACKEND: "gemini" uses the Google text-embedding-004 API (no local
