@@ -282,28 +282,28 @@ def generate_slack_files():
     eng_general = [
         {
             "user": "alice.chen",
-            "text": "Has anyone completed the database migration to PostgreSQL locally yet? I am seeing connection pool exhaustion on ARM laptops.",
+            "text": "THREAD SUMMARY: PostgreSQL connection pool exhaustion fix on ARM laptops — resolved by running pg_terminate_backend SQL command to terminate idle backend connections.\n\nHas anyone completed the database migration to PostgreSQL locally yet? I am seeing connection pool exhaustion errors on ARM (M1/M2) laptops. The error message is: 'FATAL: remaining connection slots are reserved for non-replication superuser connections'. Our local PostgreSQL connection pool is being exhausted.",
             "ts": "1708531200.000100",
             "thread_ts": None,
             "channel": "#engineering-general"
         },
         {
             "user": "eve.johnson",
-            "text": "Hi @alice.chen, yes, I saw that. We need to raise the max connection limit in our postgresql config block. Let me link the incident runbook page: [Incident Runbook](docs/confluence/incident-runbook.md). Make sure to terminate idle backends if it blocks you.",
+            "text": "Hi @alice.chen — yes, this is a known issue with the PostgreSQL connection pool on ARM. The fix is to raise the max_connections limit in postgresql.conf and to terminate idle backend connections using this SQL command:\n\nSELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE state = 'idle';\n\nAlso refer to our Incident Runbook Section 2 for the full database connection exhaustion mitigation steps. The key actions are: (1) log into AWS console, (2) check RDS pool metrics, (3) run pg_terminate_backend on idle connections.",
             "ts": "1708531260.000200",
             "thread_ts": "1708531200.000100",
             "channel": "#engineering-general"
         },
         {
             "user": "alice.chen",
-            "text": "Thanks @eve.johnson! Running the pg_terminate_backend SQL command resolved my locks immediately.",
+            "text": "Thanks @eve.johnson! Running the pg_terminate_backend SQL command resolved my PostgreSQL connection pool exhaustion immediately. The ARM laptop can now connect to the local database. For anyone else hitting this issue: run 'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE state = idle' to fix connection pool exhaustion on ARM laptops.",
             "ts": "1708531300.000300",
             "thread_ts": "1708531200.000100",
             "channel": "#engineering-general"
         },
         {
             "user": "alice.chen",
-            "text": "FYI, I am setting up the CI build scripts for arm64 now. The Docker cache keeps failing.",
+            "text": "THREAD SUMMARY: CI/CD Docker cache failing on arm64 build — issue with arm64 Docker build cache layer invalidation in CI pipeline.\n\nFYI team: I am setting up the CI build scripts for arm64 architecture now. The Docker cache keeps failing with a cache miss on the Python dependency layer. The arm64 CI builds are taking 8 minutes each instead of 2 minutes. Has anyone tuned the Dockerfile cache ordering for arm64 recently?",
             "ts": "1708532000.000100",
             "thread_ts": None,
             "channel": "#engineering-general"
@@ -314,21 +314,21 @@ def generate_slack_files():
     prod_decisions = [
         {
             "user": "bob.martinez",
-            "text": "Let's review the API gateway tier allocations. Do we agree on the 100 req/min limit for the Free tier? Marketing wants 200.",
+            "text": "THREAD SUMMARY: API gateway Free tier rate limit decision — team agreed to keep 100 requests per minute for the Free tier. Marketing wanted 200 req/min but engineering confirmed that scaling beyond 100 req/min on the Free tier would require upgrading Redis node sizes to maintain the rate-limiting buffer.\n\nLet's review the API gateway tier allocations. Do we agree on the 100 req/min (requests per minute) limit for the Free tier? Marketing wants 200 req/min. Engineering — what is the Redis impact if we double the Free tier rate limit?",
             "ts": "1708617600.000100",
             "thread_ts": None,
             "channel": "#product-decisions"
         },
         {
             "user": "alice.chen",
-            "text": "From the engineering side, 100 req/min keeps our Redis rate-limiting buffer safe. If we scale to 200, we need to upgrade Redis node sizes. Let's check the API Policy doc.",
+            "text": "From the engineering side, keeping the Free tier API rate limit at 100 req/min is the right call. Our Redis rate-limiting buffer is sized for 100 req/min. If we increase to 200 req/min for Free tier, we need to upgrade Redis node sizes from r6g.large to r6g.xlarge, which adds approximately $800/month. I recommend we keep 100 req/min for Free tier and revisit at the Pro/Enterprise tier review in Q3.",
             "ts": "1708617700.000200",
             "thread_ts": "1708617600.000100",
             "channel": "#product-decisions"
         },
         {
             "user": "bob.martinez",
-            "text": "Okay, let's keep it at 100 req/min for Free tier. We will re-evaluate for Pro and Enterprise later.",
+            "text": "Decision confirmed: Free tier API rate limit stays at 100 requests per minute. Marketing will be informed. We will re-evaluate the Free tier rate limit for Pro (1,000 req/min) and Enterprise (10,000 req/min) tiers in Q3 planning. The Redis infrastructure budget for rate-limiting will not be increased this quarter.",
             "ts": "1708617800.000300",
             "thread_ts": "1708617600.000100",
             "channel": "#product-decisions"
@@ -339,16 +339,30 @@ def generate_slack_files():
     all_hands = [
         {
             "user": "dave.kumar",
-            "text": "Will the Q3 budget reflect the Datadog migration? We need to ensure APM monitoring tools are allocated correctly.",
+            "text": "THREAD SUMMARY: All-hands Q&A — Q3 APM monitoring budget confirmed at $120,000 annually for Datadog. The Datadog migration budget is reflected in the SaaS monitoring cost category.\n\nQuestion for leadership: Will the Q3 budget reflect the Datadog migration costs? We need to ensure APM (Application Performance Monitoring) tools are properly allocated in the Q3 financial plan. The Datadog contract renewal is coming up and the finance team needs confirmation that the $120k APM budget is approved.",
             "ts": "1708704000.000100",
             "thread_ts": None,
             "channel": "#all-hands-questions"
         },
         {
             "user": "eve.johnson",
-            "text": "Yes, APM is budgeted under our SaaS monitoring costs. The target limit is $120k annually, which we negotiated with Datadog.",
+            "text": "Yes — the APM monitoring budget for Datadog is confirmed. It is categorized under SaaS monitoring costs. The approved annual budget is $120,000, which we negotiated with Datadog as part of the enterprise contract renewal. This covers APM trace profiling, Kubernetes integration, and custom metrics parsing for all our services. The budget is reflected in the Engineering Monitoring line in the Q3 financial plan.",
             "ts": "1708704100.000200",
             "thread_ts": "1708704000.000100",
+            "channel": "#all-hands-questions"
+        },
+        {
+            "user": "frank.intern",
+            "text": "Question: What is the standard annual leave policy for new employees joining BigCorp? I started last month and I want to know how many paid time off days I am entitled to.",
+            "ts": "1708704200.000300",
+            "thread_ts": None,
+            "channel": "#all-hands-questions"
+        },
+        {
+            "user": "carol.williams",
+            "text": "Hi @frank.intern! Full-time employees at BigCorp accrue 25 days of paid time off (PTO) per calendar year. New employees get pro-rated PTO based on their start date. You also get 12 paid sick days per year. Please refer to the BigCorp Leave Policy document for full details on carryover rules and approval processes.",
+            "ts": "1708704300.000400",
+            "thread_ts": "1708704200.000300",
             "channel": "#all-hands-questions"
         }
     ]
@@ -357,14 +371,14 @@ def generate_slack_files():
     leadership = [
         {
             "user": "eve.johnson",
-            "text": "We need to finalize the contract for Qdrant Cloud. It is a critical dependency for our internal NexusRAG AI search engine deployment.",
+            "text": "THREAD SUMMARY: Qdrant Cloud contract approved for NexusRAG AI search deployment — Q3 priority confirmed by Bob Martinez.\n\nWe need to finalize the Qdrant Cloud contract. It is a critical infrastructure dependency for our internal NexusRAG AI search engine deployment scheduled for Q4. Without Qdrant Cloud, the vector similarity search for the enterprise knowledge base will not be able to scale beyond the local development setup.",
             "ts": "1708790400.000100",
             "thread_ts": None,
             "channel": "#leadership-sync"
         },
         {
             "user": "bob.martinez",
-            "text": "Approved. The Q3 product roadmap shows AI Search as our primary deliverable, so having the vector database set up is a priority.",
+            "text": "Approved. The Qdrant Cloud contract is greenlit. The Q3 product roadmap lists AI Search (NexusRAG) as our primary Q4 deliverable, so having the vector database infrastructure set up in Q3 is a prerequisite. Please work with Dave's finance team to process the vendor contract. The annual Qdrant Cloud cost should be budgeted under the Engineering Infrastructure line.",
             "ts": "1708790500.000200",
             "thread_ts": "1708790400.000100",
             "channel": "#leadership-sync"

@@ -130,7 +130,7 @@ async function handleQuerySubmit(e) {
             body: JSON.stringify({
                 query: queryText,
                 username: activeUser,
-                top_k: 3
+                top_k: 5
             })
         });
         
