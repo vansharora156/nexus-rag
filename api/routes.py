@@ -100,6 +100,15 @@ async def ingest_endpoint(body: IngestRequest, request: Request) -> IngestRespon
             detail=f"Directory not found: {data_dir.resolve()}",
         )
 
+    # Close active query pipeline connections to release SQLite lock on Windows
+    qp = getattr(request.app.state, "query_pipeline", None)
+    if qp is not None:
+        try:
+            qp.vector_store.close()
+            logger.info("Closed QueryPipeline Qdrant client to release lock on Windows.")
+        except Exception as exc:
+            logger.warning("Could not close active vector store client: %s", exc)
+
     try:
         def _run_ingest():
             pipeline = IngestionPipeline()

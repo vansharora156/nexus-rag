@@ -460,24 +460,28 @@ class StructuralChunker:
         """
 
         heading = f"Table {table_index + 1}"
+        
+        # Inject metadata context directly into the text content for better retrieval matching!
+        prefix = f"[{doc.title} > {heading}]\n"
+        contextualized_table_md = prefix + table_md
 
         metadata = {
             **doc.metadata,
             "table_index": table_index,
             "source_file": doc.metadata.get("source_file"),
             "parser": doc.metadata.get("parser"),
-            "character_count": len(table_md),
+            "character_count": len(contextualized_table_md),
             "is_table": True,
         }
 
         chunk_hash = hashlib.sha256(
-            (doc.doc_id + heading + table_md).encode("utf-8")
+            (doc.doc_id + heading + contextualized_table_md).encode("utf-8")
         ).hexdigest()
 
         return Chunk(
             chunk_id=chunk_hash,
             doc_id=doc.doc_id,
-            content=table_md,
+            content=contextualized_table_md,
             source_type=doc.source_type,
             title=doc.title,
             heading=heading,
@@ -509,9 +513,13 @@ class StructuralChunker:
         """
 
         content = content.strip()
+        
+        # Inject metadata context directly into the text content for better retrieval matching!
+        prefix = f"[{doc.title} > {heading_path}]\n"
+        contextualized_content = prefix + content
 
         chunk_hash = hashlib.sha256(
-            (doc.doc_id + heading_path + content).encode("utf-8")
+            (doc.doc_id + heading_path + contextualized_content).encode("utf-8")
         ).hexdigest()
 
         metadata = {
@@ -522,14 +530,14 @@ class StructuralChunker:
             "row_range": row_range,
             "source_file": doc.metadata.get("source_file"),
             "parser": doc.metadata.get("parser"),
-            "character_count": len(content),
+            "character_count": len(contextualized_content),
             "chunk_index": index,
         }
 
         return Chunk(
             chunk_id=chunk_hash,
             doc_id=doc.doc_id,
-            content=content,
+            content=contextualized_content,
             source_type=doc.source_type,
             title=doc.title,
             heading=heading,
