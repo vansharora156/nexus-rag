@@ -516,47 +516,103 @@ III. Department Budget Summary (Q3 Actuals)
         print(f"PyMuPDF creation failed: {e}. Falling back to copying templates if available, or simple file generation.")
 
     # 3. scanned-policy-doc.pdf (Scanned PDF - Image containing text)
-    # We will use Pillow to draw text onto a blank canvas, save the image, and save as a PDF.
+    # Use PyMuPDF to render clean text onto an image page, then save as PDF.
+    # This ensures the OCR engine can read the text correctly during ingestion.
     try:
-        # Create a high-res image
-        img = Image.new("RGB", (1200, 1600), "white")
-        draw = ImageDraw.Draw(img)
-        
-        # Draw some mock text
-        text_lines = [
-            "RESTRICTED POLICY: INFORMATION SECURITY POLICY",
-            "BIGCORP INTERNAL OPERATIONS ONLY",
-            "",
-            "1. ACCESS CONTROL AND PASSWORDS",
-            "- All systems must require multi-factor authentication (MFA).",
-            "- Passwords must be at least 14 characters long and reset every 90 days.",
-            "- Sharing credentials or access keys in public Slack channels is strictly prohibited.",
-            "",
-            "2. CLOUD ENVIRONMENT AND DATA PROTECTION",
-            "- Database backups must be encrypted at rest and in transit.",
-            "- Ingestion pipelines must scrub personally identifiable information (PII) before vector storage.",
-            "- All connections to Qdrant vector database must run over HTTPS with verified TLS certificates.",
-            "",
-            "3. POLICY COMPLIANCE AND RESPONSIBILITY",
-            "- Any suspected data breach or leakage must be reported within 15 minutes to @eve.johnson.",
-            "- Failure to follow security protocols will result in immediate loss of network permissions.",
-            "",
-            "Approved by CTO Eve Johnson on May 12, 2024."
-        ]
-        
-        # Simple coordinate drawing (since we don't need a specific TTF font file, we can use default font)
-        y = 100
-        for line in text_lines:
-            draw.text((100, y), line, fill="black")
-            y += 50
-            
-        # Save the image directly as a PDF (Pillow natively supports saving RGB images as PDFs!)
+        import fitz  # PyMuPDF
+
+        # Create a new blank PDF page (A4 dimensions in points: 595 x 842)
+        doc = fitz.open()
+        page = doc.new_page(width=595, height=842)
+
+        policy_text = """\
+RESTRICTED POLICY: INFORMATION SECURITY POLICY
+BIGCORP INTERNAL OPERATIONS ONLY
+
+1. ACCESS CONTROL AND PASSWORDS
+- All systems must require multi-factor authentication (MFA).
+- Passwords must be at least 14 characters long and reset every 90 days.
+- Sharing credentials or access keys in public Slack channels is strictly prohibited.
+
+2. CLOUD ENVIRONMENT AND DATA PROTECTION
+- Database backups must be encrypted at rest and in transit.
+- Ingestion pipelines must scrub personally identifiable information (PII) before vector storage.
+- All connections to Qdrant vector database must run over HTTPS with verified TLS certificates.
+
+3. POLICY COMPLIANCE AND RESPONSIBILITY
+- Any suspected data breach or leakage must be reported within 15 minutes to @eve.johnson.
+- Failure to follow security protocols will result in immediate loss of network permissions.
+
+Approved by CTO Eve Johnson on May 12, 2024.
+"""
+        # Render the text on the page using a clean Helvetica font
+        rect = fitz.Rect(50, 50, 545, 800)
+        page.insert_textbox(rect, policy_text, fontsize=11, fontname="helv")
+
+        # Rasterize the PDF page to a high-DPI PNG image (300 DPI = zoom 300/72 ≈ 4.17)
+        mat = fitz.Matrix(4.17, 4.17)  # scale factor for 300 DPI
+        pix = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
+
+        # Create a new PDF with the rasterized image embedded (making it a true "scanned" PDF)
+        img_doc = fitz.open()
+        img_page = img_doc.new_page(width=595, height=842)
+        img_rect = fitz.Rect(0, 0, 595, 842)
+
+        # Save pixmap to PNG bytes, then insert into new PDF page as image
+        png_bytes = pix.tobytes("png")
+        img_page.insert_image(img_rect, stream=png_bytes)
+
         path3 = DATA_DIR / "pdf" / "scanned-policy-doc.pdf"
-        img.save(path3, "PDF")
-        print(f"Generated scanned image PDF via PIL: {path3}")
-        
+        img_doc.save(str(path3))
+        img_doc.close()
+        doc.close()
+        print(f"Generated scanned image PDF via PyMuPDF rasterisation: {path3}")
+
     except Exception as e:
-        print(f"PIL scanned PDF creation failed: {e}")
+        print(f"PyMuPDF scanned PDF creation failed: {e}. Falling back to PIL.")
+        try:
+            img = Image.new("RGB", (2000, 2800), "white")
+            draw = ImageDraw.Draw(img)
+            try:
+                from PIL import ImageFont
+                # Try to load a system font at a readable size
+                font = ImageFont.truetype("arial.ttf", 40)
+                font_bold = ImageFont.truetype("arialbd.ttf", 44)
+            except Exception:
+                font = ImageFont.load_default()
+                font_bold = font
+
+            text_lines = [
+                ("RESTRICTED POLICY: INFORMATION SECURITY POLICY", font_bold),
+                ("BIGCORP INTERNAL OPERATIONS ONLY", font_bold),
+                ("", font),
+                ("1. ACCESS CONTROL AND PASSWORDS", font_bold),
+                ("- All systems must require multi-factor authentication (MFA).", font),
+                ("- Passwords must be at least 14 characters long and reset every 90 days.", font),
+                ("- Sharing credentials or access keys in public Slack channels is strictly prohibited.", font),
+                ("", font),
+                ("2. CLOUD ENVIRONMENT AND DATA PROTECTION", font_bold),
+                ("- Database backups must be encrypted at rest and in transit.", font),
+                ("- Ingestion pipelines must scrub PII before vector storage.", font),
+                ("- All connections to Qdrant must run over HTTPS with verified TLS certificates.", font),
+                ("", font),
+                ("3. POLICY COMPLIANCE AND RESPONSIBILITY", font_bold),
+                ("- Any suspected data breach must be reported within 15 minutes to @eve.johnson.", font),
+                ("- Failure to follow security protocols results in immediate loss of network permissions.", font),
+                ("", font),
+                ("Approved by CTO Eve Johnson on May 12, 2024.", font),
+            ]
+
+            y = 150
+            for line, fnt in text_lines:
+                draw.text((100, y), line, fill="black", font=fnt)
+                y += 80
+
+            path3 = DATA_DIR / "pdf" / "scanned-policy-doc.pdf"
+            img.save(str(path3), "PDF")
+            print(f"Generated scanned image PDF via PIL fallback: {path3}")
+        except Exception as e2:
+            print(f"PIL scanned PDF creation also failed: {e2}")
 
 
 def main():
