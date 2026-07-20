@@ -95,11 +95,15 @@ def create_app() -> FastAPI:
     # Register routes under /api/v1
     app.include_router(router, prefix="/api/v1")
 
-    # Root redirect to docs
+    # Serve Frontend Static files
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/ui", StaticFiles(directory="frontend", html=True), name="ui")
+
+    # Root redirect to UI
     @app.get("/", include_in_schema=False)
     async def root():
         from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="/docs")
+        return RedirectResponse(url="/ui")
 
     return app
 

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AskTheCompany — Enterprise RAG Dashboard</title>
+    <!-- Outfit Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar (Left) -->
+        <aside class="sidebar">
+            <div class="brand">
+                <i class="fa-solid fa-bolt brand-icon"></i>
+                <h1>AskTheCompany</h1>
+            </div>
+            
+            <div class="sidebar-section">
+                <label for="user-switcher"><i class="fa-solid fa-user-shield"></i> Security Context (ACL)</label>
+                <div class="select-wrapper">
+                    <select id="user-switcher">
+                        <option value="alice" selected>Alice (Engineering, All)</option>
+                        <option value="bob">Bob (Exec, HR, All)</option>
+                        <option value="carol">Carol (Finance, All)</option>
+                        <option value="dave">Dave (HR, All)</option>
+                        <option value="frank">Frank (All)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="sidebar-section roles-container">
+                <h3>Active Roles</h3>
+                <div id="active-roles" class="roles-badges">
+                    <span class="role-badge">engineering</span>
+                    <span class="role-badge">all</span>
+                </div>
+            </div>
+
+            <div class="sidebar-section stats-panel">
+                <h3>System Information</h3>
+                <div class="stat-item">
+                    <span class="stat-label">Embedding</span>
+                    <span class="stat-value">Local (Offline)</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Model Dimension</span>
+                    <span class="stat-value">384 (BGE)</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">LLM Backend</span>
+                    <span class="stat-value">Groq (Llama-3)</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Database</span>
+                    <span class="stat-value">Qdrant Local</span>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <button id="reingest-btn" class="secondary-btn">
+                    <i class="fa-solid fa-arrows-rotate"></i> Re-ingest Index
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area (Center) -->
+        <main class="chat-area">
+            <header class="chat-header">
+                <h2>RAG Assistant</h2>
+                <div id="latency-badge" class="latency-badge hidden">
+                    <i class="fa-solid fa-clock"></i> <span id="latency-val">0ms</span>
+                </div>
+            </header>
+
+            <div id="chat-messages" class="chat-messages">
+                <!-- Welcome Message -->
+                <div class="message assistant-message">
+                    <div class="avatar"><i class="fa-solid fa-robot"></i></div>
+                    <div class="message-content">
+                        <p>Hello! I am your AskTheCompany Enterprise Assistant. Ask me anything about internal guidelines, budgets, schedules, or onboarding procedures.</p>
+                        <p class="hint">Because ACL controls are active, your results will change based on the user identity selected in the sidebar.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Query Variants Accordion -->
+            <div id="rewrites-container" class="rewrites-container hidden">
+                <div class="rewrites-header" id="rewrites-trigger">
+                    <span><i class="fa-solid fa-magnifying-glass-arrow-right"></i> Generated Search Variants</span>
+                    <i class="fa-solid fa-chevron-down chevron-icon"></i>
+                </div>
+                <div class="rewrites-body" id="rewrites-body">
+                    <!-- Dynamic variants go here -->
+                </div>
+            </div>
+
+            <!-- Chat Input Form -->
+            <form id="chat-form" class="chat-input-container">
+                <input type="text" id="user-input" autocomplete="off" placeholder="Ask a question..." required>
+                <button type="submit" id="send-btn" class="send-btn">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </form>
+        </main>
+
+        <!-- Citations Panel (Right) -->
+        <section class="citations-panel">
+            <div class="panel-header">
+                <h2><i class="fa-solid fa-book-open"></i> Sources & Citations</h2>
+            </div>
+            <div id="citations-list" class="citations-list">
+                <div class="empty-citations">
+                    <i class="fa-solid fa-folder-open"></i>
+                    <p>No query submitted yet. Relevant documents will appear here with active permissions metrics.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
