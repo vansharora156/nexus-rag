@@ -230,7 +230,23 @@ class PDFParser(DocumentParser):
         )
 
     def _rasterize_pdf_page(self, file_path: Path, page_num: int, dpi: Optional[int] = None):
-        """Render a PDF page to a PIL image."""
+        """Render a PDF page to a PIL image, with direct image extraction optimization."""
+        # Optimization: Try direct embedded image extraction first to avoid expensive rendering & malloc failures
+        try:
+            import fitz
+            from PIL import Image
+            import io
+            with fitz.open(str(file_path)) as doc:
+                page = doc.load_page(page_num - 1)
+                img_list = page.get_images()
+                if img_list:
+                    xref = img_list[0][0]
+                    base_image = doc.extract_image(xref)
+                    if base_image and base_image.get("image"):
+                        return Image.open(io.BytesIO(base_image["image"]))
+        except Exception as ocr_err:
+            logger.debug(f"Direct image extraction failed: {ocr_err}, falling back to rasterization")
+
         dpi = dpi or config.OCR_RENDER_DPI
         try:
             import pdfplumber

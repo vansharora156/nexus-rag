@@ -35,7 +35,7 @@ _SOURCE_ICONS: Dict[str, str] = {
 _DEFAULT_ICON = "📎"
 
 # Maximum characters of content to include per citation in the prompt
-_SNIPPET_CHARS = 300
+_SNIPPET_CHARS = 2000
 
 
 @dataclass

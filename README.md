@@ -263,6 +263,28 @@ We document major technology choices and design patterns using Architecture Deci
 
 ---
 
+## ⚡ Streamlit Interactive Dashboard (Alternative UI)
+
+As a lightweight alternative to the FastAPI/JS dashboard, NexusRAG includes an in-memory **Streamlit UI** that can be run locally or deployed directly to the cloud for free.
+
+### Run Locally
+```bash
+streamlit run app_streamlit.py
+```
+
+### Free Deployment to Streamlit Community Cloud
+1. Push your repository to GitHub.
+2. Sign in to [Streamlit Community Cloud](https://share.streamlit.io/).
+3. Click **New app**, select your repo, branch (`main`), and set the main file path to `app_streamlit.py`.
+4. In **Advanced settings**, paste your secrets from `.env` (e.g. `GROQ_API_KEY`, `GEMINI_API_KEY`) into the secrets text area:
+   ```toml
+   GROQ_API_KEY = "your-key-here"
+   GEMINI_API_KEY = "your-key-here"
+   ```
+5. Click **Deploy**!
+
+---
+
 ## ⚠️ Known Limitations
 
 1.  **Google Gemini Free-Tier Quota Limit:** The free-tier API has a limit of 15 requests per minute (RPM). Under heavy search concurrency or during first-time database ingestion, you might see warning logs indicating exponential backoff attempts (15s → 30s → 60s). Using the local embedding backend + Groq completion backend bypasses these limits completely.
