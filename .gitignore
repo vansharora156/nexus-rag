@@ -75,6 +75,7 @@ logs/
 # ---------- Misc ----------
 *.bak
 *.tmp
+invigilator_questions.txt
 
 # ---------- Vector Store Storage ----------
 qdrant_storage/
